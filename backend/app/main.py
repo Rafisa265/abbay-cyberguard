@@ -214,6 +214,15 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/api/v1/ready", summary="Readiness check")
+def readiness():
+    from . import database
+
+    if not database.check_database_health():
+        return JSONResponse({"status": "unavailable"}, status_code=503)
+    return {"status": "ok"}
+
+
 # Include M4 Website Security Check (Demo) routes
 app.include_router(routes_m4.router)
 
@@ -251,4 +260,3 @@ app.mount("/images/journey/cache", StaticFiles(directory=_cache_dir), name="jour
 _dist = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 if _dist.is_dir():
     app.mount("/", StaticFiles(directory=_dist, html=True), name="static")
-

@@ -34,6 +34,35 @@ def test_host_header():
     assert c.get("/api/v1/health", headers={"Host": "localhost:8000"}).status_code == 200
 
 
+def test_readiness_reports_database_availability(monkeypatch):
+    from app import database
+
+    monkeypatch.setattr(database, "check_database_health", lambda: False)
+    r = c.get("/api/v1/ready")
+    assert r.status_code == 503
+    assert r.json() == {"status": "unavailable"}
+
+
+def test_postgres_urls_use_installed_psycopg_driver():
+    assert config._normalize_database_url("postgres://user:pass@db.example/app") == (
+        "postgresql+psycopg://user:pass@db.example/app"
+    )
+    assert config._normalize_database_url("postgresql://user:pass@db.example/app") == (
+        "postgresql+psycopg://user:pass@db.example/app"
+    )
+    assert config._normalize_database_url("postgresql+psycopg://user:pass@db.example/app") == (
+        "postgresql+psycopg://user:pass@db.example/app"
+    )
+
+
+def test_production_database_url_requires_tls():
+    with pytest.raises(RuntimeError, match="must require TLS"):
+        config._validate_production_database_url("postgresql+psycopg://user:pass@db.example/app")
+    config._validate_production_database_url(
+        "postgresql+psycopg://user:pass@db.example/app?sslmode=require"
+    )
+
+
 def test_origin():
     assert c.post("/api/v1/m4/demo", json={"scenario_id": "DS-A"}, headers={"Origin": "https://evil.example"}).status_code == 403
     assert c.post("/api/v1/m4/demo", json={"scenario_id": "DS-A"}, headers={"Origin": "http://127.0.0.1:8000"}).status_code == 200

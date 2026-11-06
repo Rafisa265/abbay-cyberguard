@@ -133,7 +133,6 @@ def register(
     _set_session_cookie(response, raw_token)
     return AuthResponse(
         user=_build_user_response(user),
-        token=raw_token,
         message="Registration successful",
     )
 
@@ -187,7 +186,6 @@ def login(
     _set_session_cookie(response, raw_token)
     return AuthResponse(
         user=_build_user_response(user),
-        token=raw_token,
         message="Login successful",
     )
 

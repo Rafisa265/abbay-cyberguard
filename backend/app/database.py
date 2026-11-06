@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 from typing import Generator
 from sqlalchemy import create_engine, event, text
@@ -15,11 +16,12 @@ def _build_engine():
     # Check if a non-SQLite PostgreSQL URL is specified
     if db_url and not db_url.startswith("sqlite"):
         try:
+            db_timeout = int(os.getenv("DATABASE_CONNECT_TIMEOUT", "10"))
             eng = create_engine(
                 db_url,
                 pool_pre_ping=True,
                 future=True,
-                connect_args={"connect_timeout": 1},
+                connect_args={"connect_timeout": db_timeout},
             )
             with eng.connect() as conn:
                 conn.execute(text("SELECT 1"))

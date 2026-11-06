@@ -170,7 +170,7 @@ class GeminiAIProvider(BaseAIProvider):
             log.error("event=gemini_provider_error status=%s", e.code)
             return None, f"HTTP_{e.code}"
         except Exception as e:
-            log.error("event=gemini_request_exception err=%s", str(e))
+            log.error("event=gemini_request_exception error_type=%s", type(e).__name__)
             return None, "TIMEOUT_OR_NETWORK_ERROR"
 
 
@@ -184,7 +184,8 @@ def get_active_provider() -> BaseAIProvider:
     if provider_name == "mock":
         return MockAIProvider(api_key=api_key or "mock_key", timeout=timeout, model=model)
     elif provider_name == "gemini":
+        if not config.ASSISTANT_ONLINE_ENABLED:
+            return UnconfiguredAIProvider()
         return GeminiAIProvider(api_key=api_key, timeout=timeout, model=model)
     else:
         return UnconfiguredAIProvider()
-

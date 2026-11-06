@@ -4,10 +4,10 @@
 > Built for citizens, students, civil servants, and digital users navigating modern online threats.
 
 [![Frontend Tests](https://img.shields.io/badge/Frontend%20Tests-821%20Passed-success?style=flat-square&logo=vitest)](frontend/)
-[![Backend Tests](https://img.shields.io/badge/Backend%20Tests-333%20Passed-success?style=flat-square&logo=pytest)](backend/)
+[![Backend Tests](https://img.shields.io/badge/Backend%20Tests-338%20Passed-success?style=flat-square&logo=pytest)](backend/)
 [![Languages](https://img.shields.io/badge/Languages-English%20%7C%20Afaan%20Oromoo%20%7C%20%E1%8X%80%E1%8X%9B%E1%88%AD%E1%8X%9B-blue?style=flat-square)](#trilingual-localization)
-[![Architecture](https://img.shields.io/badge/Architecture-Offline--First%20%7C%20Zero--Telemetry-purple?style=flat-square)](#privacy--security-architecture)
-[![Stack](https://img.shields.io/badge/Stack-React%2018%20%2B%20FastAPI%20%2B%20PostgreSQL-orange?style=flat-square)](#system-architecture--tech-stack)
+[![Architecture](https://img.shields.io/badge/Architecture-Offline--First-purple?style=flat-square)](#privacy--security-architecture)
+[![Stack](https://img.shields.io/badge/Stack-React%2019%20%2B%20FastAPI%20%2B%20PostgreSQL-orange?style=flat-square)](#system-architecture--tech-stack)
 
 ---
 
@@ -34,16 +34,16 @@
 
 ## Overview & Mission
 
-**ABBAY CYBERGUARD** is an open, privacy-preserving cybersecurity education ecosystem designed to demystify digital security for individuals and small organizations in Ethiopia and East Africa.
+**ABBAY CYBERGUARD** is a privacy-conscious cybersecurity education platform designed to demystify digital security for individuals and small organizations in Ethiopia and East Africa.
 
 Digital transformation brings immense opportunity alongside rising threats: SMS phishing (smishing), mobile money account takeovers, social engineering, insecure Wi-Fi hotspots, and credential theft. ABBAY CYBERGUARD provides practical, hands-on, and accessible defense training directly in local languages without compromising user privacy.
 
 ### Guiding Principles
 
-- **Zero-Telemetry Default**: Educational tools must not spy on learners. All primary scanning, password auditing, and learning tools execute entirely in the client browser.
+- **Privacy-First Default**: Guest learning and analysis tools run locally in the browser. Account features use the backend, and optional external services are disabled unless configured and explicitly requested.
 - **True Offline Capability**: Core learning modules, 3D simulations, threat heuristics, and local AI triage work offline without requiring internet access.
 - **Linguistic Equity**: Cybersecurity concepts are communicated natively in **English**, **Afaan Oromoo**, and **Amharic (አማርኛ)**, ensuring accessibility across communities.
-- **Fail-Closed Security**: Production backend environments fail closed against insecure configurations, unencrypted connections, or missing database backends.
+- **Production Guardrails**: Production startup requires a strong configured secret, HTTPS cookies, TLS for PostgreSQL, and a reachable PostgreSQL database with the migrated schema.
 
 ---
 
@@ -54,18 +54,18 @@ ABBAY CYBERGUARD provides five dedicated practical security tools and laboratori
 ### M1: Threat Intelligence & Link Scanner
 - **Local Heuristics Engine**: Evaluates URLs against homoglyph attacks, punycode spoofing, IP-based hosts, top-level domain anomalies, and high-entropy path patterns entirely client-side.
 - **Domain Verification**: Uses Tranco top domain partitions and URLhaus Public Suffix List (PSL) rules.
-- **Optional CTI Integration**: Pluggable Google Safe Browsing / Web Risk backend adapter with strict timeouts (default 4.0s) and fallback to heuristic evaluation if offline or unconfigured.
+- **Optional CTI Integration**: An explicitly enabled Google Safe Browsing v5 request checks a four-byte SHA-256 URL-hash prefix with a strict timeout (default 4.0s). The complete URL is not sent to that provider. If no provider is configured, the browser's offline heuristics remain available. Google Web Risk is not implemented.
 
-### M2: Password Security & Vault
-- **Client-Side Cryptography**: Evaluates password strength, entropy bits, and crack-time estimates using Web Crypto API (`PBKDF2/SHA-256`).
-- **Cryptographic Generator**: Employs uniform rejection-sampling PRNG (`crypto.getRandomValues`) to produce high-entropy, customizable passwords and passphrases.
-- **Zero-Transmission Guarantee**: Passwords generated or tested never leave browser memory; they are never transmitted to any server or logged.
+### M2: Password Security
+- **Browser-Local Heuristics**: Estimates strength and theoretical entropy from length, character diversity, common-password patterns, and predictable sequences; this is not a breach check or a calibrated crack-time guarantee.
+- **Cryptographic Generator**: Uses `crypto.getRandomValues` with rejection sampling to generate customizable passwords (12–64 characters); passphrase generation is not implemented.
+- **Module Privacy**: Passwords entered into or generated by M2 are processed locally and are not sent to the backend. This does not apply to the separate account registration/login forms.
 
 ### M3: Incident Report Assistant
 - **Interactive Triage**: Guided incident documentation for common scenarios: unauthorized account access, financial scams, harassment, malware infection, and lost devices.
-- **Offline Text Classification**: Local Naive Bayes classifier assists in triaging incident urgency without cloud telemetry.
+- **Offline Text Classification**: Local, deterministic classification assists in triaging incident urgency without sending report text to the backend.
 - **Actionable Guidance & Local Hotlines**: Provides step-by-step containment checklists and contact directories for Ethiopian Computer Emergency Response Team (ETHIO-CERT), INSA, and telecommunications operators.
-- **Export & Privacy Barrier**: Report drafts are stored strictly in client storage; export is initiated only by explicit user command.
+- **Export & Privacy Barrier**: Drafts remain in page memory; the module does not submit or persist report content. A download happens only when the user explicitly exports.
 
 ### M4: Website Security Learning Lab
 - **Educational Simulation**: Interactive laboratory that visualizes how web protocols and server headers protect modern applications.
@@ -76,7 +76,7 @@ ABBAY CYBERGUARD provides five dedicated practical security tools and laboratori
 ### M5: Academy & Certifications
 - **Structured Curriculum**: Progressive cybersecurity courses covering fundamental hygiene, network safety, operational security, and social engineering defense.
 - **Interactive Quizzes**: Real-time evaluation with contextual explanations.
-- **Verifiable Localized Certificates**: Generates downloadable PDF certificates with localized typography and tamper-evident SHA-256 verification fingerprints.
+- **Completion Records**: A passed level can produce a downloadable PNG/printable educational completion record. Its identifier and local verification code are not checked by a server and do not establish accreditation or professional qualification.
 
 ---
 
@@ -91,7 +91,7 @@ An adaptive, gamified journey guiding learners through progressive operational r
 A real-time, browser-based tactical 3D cyber combat simulation built with **Three.js** and WebGL.
 - **Squad Tactical Combat**: Friendly Defender units face off against hostile threat vectors (Malware Crawlers, DDoS Swarms, and Phishing Infiltrators).
 - **Visual Combat Feedback**: Clear team identification, tactical health markers, 3D projectile trajectories, and spatial combat effects.
-- **High Performance**: Optimized for 60 FPS rendering across both desktop and mobile platforms with dual-stick touch controls.
+- **Controls**: Desktop and touch controls are supported. Frame-rate performance has not been benchmarked across target devices.
 - **Minimap & Radar**: Real-time spatial tracking of friendly and hostile forces across the digital metropolis.
 
 ### Device Security Auditor
@@ -105,7 +105,7 @@ A real-time, browser-based tactical 3D cyber combat simulation built with **Thre
 ### Conversational Security Assistant
 - **Dual-Mode Intelligence**:
   - **Offline Intent Engine**: Instant, local keyword and semantic intent matcher resolving hundreds of common cybersecurity questions in English, Afaan Oromoo, and Amharic.
-  - **Optional Cloud Provider**: Consent-gated Google Gemini API integration (`CYBERSHIELD_ASSISTANT_PROVIDER=gemini`) for advanced conversational queries. Requires explicit user opt-in before sending any text outside the local environment.
+  - **Optional Cloud Provider**: Google Gemini is used only when `CYBERSHIELD_ASSISTANT_ONLINE_ENABLED=true`, the provider and API key are configured, and the user explicitly consents for that request.
 
 ### Multilingual Voice Pipeline
 - **Speech-to-Text (STT)**:
@@ -128,11 +128,11 @@ ABBAY CYBERGUARD is localized from the ground up for the Ethiopian multilingual 
 
 | Language | Code | Script | Translation Status | Voice Support |
 |---|---|---|---|---|
-| **English** | `en` | Latin | 100% Verified | Offline STT (`whisper.cpp`) + Browser Native TTS |
-| **Afaan Oromoo** | `om` | Qubee Latin | 100% Parity | Offline MMS-VITS TTS |
-| **Amharic (አማርኛ)** | `am` | Ge'ez / Fidel | 100% Parity | Offline Whisper STT + Offline MMS-VITS TTS |
+| **English** | `en` | Latin | Dictionary key parity tested | Offline STT requires the optional Whisper binary/model; browser-native TTS |
+| **Afaan Oromoo** | `om` | Qubee Latin | Dictionary key parity tested | Offline TTS requires optional model files; offline STT is unsupported |
+| **Amharic (አማርኛ)** | `am` | Ge'ez / Fidel | Dictionary key parity tested | Offline STT/TTS require optional model files |
 
-All localization strings maintain strict key parity verified by automated frontend unit tests. Custom typography ensures proper rendering of Ge'ez characters and Latin diacritics across mobile and desktop displays.
+Automated frontend tests check translation dictionary key parity. They do not certify translation quality. Custom typography supports Ge'ez characters and Latin diacritics.
 
 ---
 
@@ -147,20 +147,20 @@ All localization strings maintain strict key parity verified by automated fronte
 |         GUEST MODE (DEFAULT)       |        ACCOUNT MODE (OPTIONAL)      |
 +------------------------------------+-------------------------------------+
 | • No account or email required     | • Cross-device progress sync        |
-| • 100% offline & client-side       | • Argon2id password hashing         |
-| • Zero server telemetry            | • Revocable SHA-256 session tokens  |
-| • LocalStorage isolated to browser | • SameSite=Lax / Strict cookies     |
-| • Passwords never leave device     | • Explicit opt-in sync consent gate |
+| • Guest learning is offline-capable | • Argon2id password hashing         |
+| • No analytics SDK is configured    | • Revocable random session tokens   |
+| • Guest progress remains local      | • HttpOnly, SameSite=Lax cookies    |
+| • M2 passwords stay in browser      | • Explicit opt-in progress sync     |
 +------------------------------------+-------------------------------------+
 ```
 
 ### Security Engineering Standards
 
-- **Password Hashing**: **Argon2id** (`time_cost=2`, `memory_cost=64MB`, `parallelism=1`, 32-byte hash) via `pwdlib`. Plaintext passwords are never stored, logged, or cached.
-- **Session Security**: High-entropy cryptographically random session tokens stored as SHA-256 hashes in PostgreSQL; served via `HttpOnly`, `SameSite=Lax` (or `Strict`), and environment-controlled `Secure` cookies (`cybershield_session`).
-- **Database Integrity**: Fail-closed database configuration in production. SQLite fallback is strictly prohibited in production mode.
-- **Brute-Force Protection**: Sliding-window in-memory rate limiting across authentication endpoints.
-- **Enumeration Defense**: Constant-time authentication responses with generic error messages preventing user enumeration.
+- **Password Hashing**: **Argon2id** (`time_cost=2`, `memory_cost=64MB`, `parallelism=1`, 32-byte hash) via `argon2-cffi`. Plaintext account passwords are not stored.
+- **Session Security**: Cryptographically random session tokens are stored as SHA-256 hashes in the database and delivered only in an `HttpOnly`, `SameSite=Lax` cookie with `Secure` enabled in production. The separate `CYBERSHIELD_SECRET_KEY` setting is a startup guard; it is not used to sign these tokens.
+- **Database Integrity**: Production rejects SQLite and requires PostgreSQL configured with TLS. Startup verifies the migrated schema.
+- **Brute-Force Protection**: Sliding-window in-memory rate limits cover authentication endpoints in one process. They are not shared across instances or restarts.
+- **Enumeration Mitigation**: Login returns generic credential errors and performs dummy Argon2id verification for unknown users; this reduces, but does not guarantee elimination of, timing differences.
 - **Content Security & CORS**: Restrictive Cross-Origin Resource Sharing (CORS) bound to loopback and configured application origins.
 
 ---
@@ -170,8 +170,8 @@ All localization strings maintain strict key parity verified by automated fronte
 ```
                                   [ Browser / Client ]
                          +-----------------------------------+
-                         |      React 18 + TypeScript        |
-                         |  Tailwind CSS  |  Three.js WebGL  |
+                         |       React 19 + JavaScript       |
+                         |      CSS       |  Three.js WebGL  |
                          |  Web Crypto    |  Web Speech API  |
                          +-----------------+-----------------+
                                            | HTTP / REST
@@ -185,16 +185,16 @@ All localization strings maintain strict key parity verified by automated fronte
                    v                                                v
        +-----------------------+                        +-----------------------+
        |     PostgreSQL 16     |                        |  Offline Voice Models |
-       |  (Alembic Migrations) |                        |  (Whisper + MMS-VITS) |
+       |  (Alembic Migrations) |                        | (Whisper + MMS TTS)  |
        +-----------------------+                        +-----------------------+
 ```
 
 ### Technology Matrix
 
-- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, Three.js (WebGL 3D engine), Lucide React icons, Vitest.
-- **Backend**: FastAPI, Pydantic v2, SQLAlchemy 2.0 Async, Alembic, Psycopg 3, Pytest.
-- **Database**: PostgreSQL 16+ (fail-closed in production).
-- **ML / AI Runtimes**: PyTorch, Hugging Face Transformers, `whisper.cpp`, MMS-VITS.
+- **Frontend**: React 19, JavaScript/JSX, Vite, CSS, Three.js, Vitest.
+- **Backend**: FastAPI, Pydantic 2, synchronous SQLAlchemy, Alembic, Psycopg 3, Pytest.
+- **Database**: PostgreSQL (required in production); SQLite is used for local fallback only.
+- **Optional Voice Runtimes**: Whisper.cpp and Hugging Face Transformers/MMS models are not installed as production dependencies and are not included in the repository.
 
 ---
 
@@ -206,7 +206,7 @@ CyberShield-Ethiopia/
 │   ├── alembic/              # Alembic database migrations and version scripts
 │   ├── app/                  # FastAPI application package
 │   │   ├── config.py         # Application settings and environment configuration
-│   │   ├── database.py       # Async SQLAlchemy database session management
+│   │   ├── database.py       # SQLAlchemy database engine and session management
 │   │   ├── models.py         # Database ORM models (User, Session, Progress)
 │   │   ├── routes_auth.py    # Argon2id authentication & session endpoints
 │   │   ├── routes_m4.py      # Website Security Lab simulation endpoints
@@ -214,19 +214,19 @@ CyberShield-Ethiopia/
 │   │   ├── routes_voice.py   # Offline STT/TTS voice pipeline & status
 │   │   ├── tts_service.py    # Offline neural TTS engine wrapper
 │   │   └── main.py           # Application entrypoint & middleware pipeline
-│   ├── tests/                # Automated pytest test suites (333 tests)
+│   ├── tests/                # Automated pytest test suites
 │   ├── requirements.txt      # Core Python production dependencies
 │   ├── requirements-dev.txt  # Testing and development dependencies
 │   └── run.py                # Local development server runner
 ├── frontend/
 │   ├── src/                  # React application source code
 │   │   ├── components/       # Shared UI components and modals
-│   │   ├── i18n/             # Multilingual translation dictionaries (EN, OM, AM)
-│   │   ├── modules/          # Core modules: M1, M2, M3, M4, M5, Journey, Digital City
-│   │   └── services/         # Client-side crypto, CTI, and API connectors
-│   ├── tests/                # Automated Vitest test files (821 tests)
+│   │   ├── locales/          # Multilingual translation dictionaries (EN, OM, AM)
+│   │   ├── components/       # M1–M5, assistant, account, and game interfaces
+│   │   ├── lib/              # Local analysis, progress, and game logic
+│   │   └── *.test.js         # Vitest tests alongside source
 │   ├── package.json          # Node dependencies and build scripts
-│   └── vite.config.ts        # Vite configuration and build targets
+│   └── vite.config.js        # Vite configuration and build targets
 ├── .gitignore                # Git exclusions (models, backups, databases, secrets)
 ├── setup.bat                 # Windows one-click environment setup script
 ├── start.bat                 # Windows one-click development startup script
@@ -242,7 +242,7 @@ CyberShield-Ethiopia/
 - **Operating System**: Linux, macOS, or Windows 10/11
 - **Python**: Version 3.11 or newer
 - **Node.js**: Version 20 LTS or newer (`npm` 10+)
-- **PostgreSQL**: Version 16 or newer (optional for client-only exploration, required for backend account features)
+- **PostgreSQL**: Optional for local guest use; required for production account features.
 
 ---
 
@@ -324,25 +324,36 @@ Open **http://127.0.0.1:8000** in your browser.
 
 ## Configuration & Environment Variables
 
-Configuration is loaded from `.env` in the repository root.
+Backend configuration is read from process environment variables and, for local development, `.env` in the repository root or `backend/`. Process environment takes precedence. Render's `PORT` is used when `CYBERSHIELD_PORT` is not set.
 
 > **Note on Variable Naming**: For backward compatibility and stability across deployments, internal environment variable keys retain the `CYBERSHIELD_*` prefix.
 
 | Variable | Default Value | Description |
 |---|---|---|
-| `CYBERSHIELD_BIND` | `127.0.0.1` | Loopback bind address (refuses non-loopback unless explicitly permitted) |
-| `CYBERSHIELD_PORT` | `8000` | Port for FastAPI application server |
-| `CYBERSHIELD_ALLOW_NON_LOOPBACK` | `false` | Security guard preventing accidental public exposure |
-| `DATABASE_URL` | `postgresql+psycopg://...` | PostgreSQL connection string for development and production |
-| `TEST_DATABASE_URL` | `postgresql+psycopg://...` | Isolated PostgreSQL database used strictly for test execution |
-| `CYBERSHIELD_SECRET_KEY` | *(Random secret)* | Cryptographic key for session token HMAC signing |
-| `CYBERSHIELD_SESSION_LIFETIME_HOURS` | `24` | Session token validity duration in hours |
-| `CYBERSHIELD_COOKIE_SECURE` | `false` | Enforce `Secure` flag on cookies (set to `true` on HTTPS deployments) |
-| `CYBERSHIELD_RATE_LIMIT_ENABLED` | `true` | Enables sliding-window rate limiting on sensitive auth routes |
-| `CYBERSHIELD_CTI_PROVIDER` | `google_safe_browsing_v5` | CTI adapter (`google_safe_browsing_v5`, `google_web_risk`, `mock`) |
-| `CYBERSHIELD_CTI_API_KEY` | `""` | Optional CTI API key (if empty, M1 operates strictly in offline heuristic mode) |
-| `CYBERSHIELD_ASSISTANT_PROVIDER` | `"none"` | External AI adapter (`none`, `gemini`, `mock`) |
-| `CYBERSHIELD_ASSISTANT_API_KEY` | `""` | Optional Gemini API key for conversational assistant |
+| Variable | Default / production behavior | Description |
+|---|---|---|
+| `CYBERSHIELD_ENV` | `development` | Set to `production` to enable production checks. |
+| `CYBERSHIELD_BIND` | `127.0.0.1` | Bind address; public hosts require explicit non-loopback opt-in. |
+| `CYBERSHIELD_PORT` | `PORT`, otherwise `8000` | Application port. Render injects `PORT`. |
+| `CYBERSHIELD_ALLOW_NON_LOOPBACK` | `false` | Set `true` only for an intentional public/reverse-proxy deployment. |
+| `CYBERSHIELD_ALLOWED_HOSTS` | empty | Comma-separated exact `Host` values accepted by the API in production. |
+| `CYBERSHIELD_ALLOWED_ORIGINS` | local origins | Comma-separated exact browser origins allowed by CORS and mutation checks. |
+| `DATABASE_URL` | local PostgreSQL development URL | PostgreSQL URL; plain `postgres://` and `postgresql://` are normalized to the installed Psycopg 3 driver. Production requires `sslmode=require` or stronger. |
+| `TEST_DATABASE_URL` | local database named `cybershield_test` | Used only by some tests. Those tests recreate tables; use an isolated test database. It is not the application runtime database. |
+| `CYBERSHIELD_SECRET_KEY` | development-only placeholder | Production startup guard requiring a random value of at least 32 characters. Session tokens are random and stored as hashes; this value is not used to sign them. |
+| `CYBERSHIELD_SESSION_LIFETIME_HOURS` | `24` | Session cookie/database expiry in hours. |
+| `CYBERSHIELD_COOKIE_SECURE` | `false` in development; required true in production | Adds the HTTPS-only `Secure` flag to session cookies. |
+| `CYBERSHIELD_RATE_LIMIT_ENABLED` | `true` | Enables per-process in-memory rate limiting on auth endpoints. |
+| `CYBERSHIELD_ALLOW_SQLITE_FALLBACK` | `true` in development; false in production | Development fallback only; production rejects SQLite. |
+| `CYBERSHIELD_AUTO_CREATE_TABLES` | `true` in development; false in production | Production expects Alembic migrations to have run before startup. |
+| `CYBERSHIELD_ENABLE_DOCS` | `true` in development; false in production | Controls FastAPI docs and OpenAPI endpoints. |
+| `CYBERSHIELD_CTI_PROVIDER` | `auto` | `auto`, `local_feed`, `google_safe_browsing_v5`, or `mock`. Web Risk is not implemented. |
+| `CYBERSHIELD_CTI_API_KEY` | empty | Optional Safe Browsing key. Empty keys do not break offline analysis. |
+| `CYBERSHIELD_CTI_TIMEOUT_SECONDS` | `4.0` | CTI provider timeout. |
+| `CYBERSHIELD_ASSISTANT_ONLINE_ENABLED` | `false` | Server-side Gemini kill-switch; must be true, in addition to consent, to allow external requests. |
+| `CYBERSHIELD_ASSISTANT_PROVIDER` | `none` | `none`, `gemini`, or local test-only `mock`. |
+| `CYBERSHIELD_ASSISTANT_API_KEY` | empty | Optional Gemini API key; never put it in frontend build variables. |
+| `VITE_API_BASE_URL` | empty | Frontend build-time API origin; set this in Cloudflare Pages for a separate backend host. |
 
 ---
 
@@ -352,14 +363,14 @@ Due to GitHub repository size limits and bandwidth considerations, binary AI mod
 
 ### Default Behavior Without Models
 
-ABBAY CYBERGUARD starts and runs **100% safely without model binaries**:
+The web application starts without model binaries:
 - All web modules (M1, M2, M3, M4, M5), the Cyber Hero Journey, Account management, and the Digital City 3D simulation operate without any missing dependencies.
-- The Conversational AI Assistant operates in text mode and uses the browser's native speech synthesis for English voice.
-- Voice endpoints gracefully report `TTS_MODEL_NOT_INSTALLED` or `MODEL_NOT_FOUND` without server crashes.
+- The Conversational AI Assistant works in text mode. Browser-native English speech synthesis depends on browser support.
+- Offline STT/TTS endpoints report unavailable model/runtime states when their optional files or packages are absent. Afaan Oromoo offline STT is not supported.
 
 ### Installing Offline Voice Models (Optional)
 
-If you require full local, offline speech recognition and synthesis for Amharic and Afaan Oromoo:
+Optional local speech support requires the listed models, the matching runtime dependencies, and a compatible host. English and Amharic STT and Amharic/Afaan Oromoo TTS are implemented; Afaan Oromoo offline STT is not supported. These models are not installed by the production requirements or included in the repository.
 
 ```
 models/voice/
@@ -386,14 +397,7 @@ Model paths can be overridden in `.env` using `CYBERSHIELD_WHISPER_MODEL_PATH`, 
 
 ## Automated Verification & Testing
 
-ABBAY CYBERGUARD enforces strict automated testing across the entire stack. All **1,154 automated tests** pass with 100% success rate:
-
-```
-========================= 1,154 passed in total =========================
-  • Backend Test Suite:   333 passed  (15 test suites via pytest)
-  • Frontend Test Suite:  821 passed  (45 test files via vitest)
-=========================================================================
-```
+Run the suites locally; the results below reflect the latest run in this checkout, not a guarantee about future changes. They include simulated/unit tests and do not constitute a hosted production smoke test or a device-wide performance benchmark.
 
 ### Running Backend Tests
 
@@ -401,7 +405,7 @@ ABBAY CYBERGUARD enforces strict automated testing across the entire stack. All 
 cd backend
 pytest tests/ -v
 ```
-*Validates Argon2id auth, session revocation, consent boundary isolation, M1 heuristic detectors, CTI adapters, voice admission limits, database migrations, and rate limiting.*
+*Includes auth/session, consent, M1, CTI, voice-admission and related unit/integration checks. PostgreSQL-specific deployment behavior still requires a real isolated PostgreSQL deployment test.*
 
 ### Running Frontend Tests
 
@@ -409,42 +413,61 @@ pytest tests/ -v
 cd frontend
 npm test
 ```
-*Validates Web Crypto RNG distribution, M1 punycode parsing, M3 draft generation, M4 header analysis, M5 quiz grading, trilingual dictionary key parity across 1,807 keys, 3D WebGL rendering, and responsive mobile controls.*
+*Includes M2 password generation and analysis, M1 parsing, M3 drafting, M4 simulation, M5 quiz grading, translation-key parity, and game/UI behavior. WebGL tests use mocks where a real context is unavailable.*
 
 ---
 
 ## Production Deployment
 
-### 1. Frontend Static Build
+## Production Deployment (Cloudflare Pages + Render + Neon)
 
-The frontend compiles to optimized static assets:
+This repository is configured for a separate static frontend and API. No service is created or published by these instructions. Free plans and quotas change; Render explicitly warns that its free instances are not for production, may sleep after inactivity, and have ephemeral local filesystems. Treat a free-tier deployment as a preview, not a production availability commitment.
 
-```bash
-cd frontend
-npm run build
-```
-Output directory: `frontend/dist`. Deployable to Cloudflare Pages, Vercel, Netlify, or AWS S3.
+### 1. Cloudflare Pages frontend
 
-For Single-Page Application (SPA) routing, ensure standard fallback routing is configured:
-```
-/*    /index.html   200
-```
+- Repository root directory: `frontend`
+- Build command: `npm ci && npm run build`
+- Build output directory: `dist`
+- Set build environment variable `VITE_API_BASE_URL=https://api.example.com` (replace with the exact API hostname; no secret belongs in this variable).
+- Keep `public/_redirects` as the SPA fallback. Cloudflare Pages `_redirects` does not proxy to an external domain; API calls use `VITE_API_BASE_URL`.
 
-### 2. Backend API Service
+### 2. Render backend
 
-Deploy the FastAPI backend behind a production WSGI/ASGI server (e.g. Uvicorn or Gunicorn) behind Nginx, Caddy, or a managed cloud platform (Render, Railway, Fly.io):
+- Repository root directory: `backend`
+- Build command: `pip install -r requirements.txt`
+- Start command: `python run.py`
+- Set `CYBERSHIELD_ENV=production`, `CYBERSHIELD_BIND=0.0.0.0`, and `CYBERSHIELD_ALLOW_NON_LOOPBACK=true`. `run.py` validates non-loopback binding and uses Render's injected `PORT` unless `CYBERSHIELD_PORT` is explicitly set.
+- Set `CYBERSHIELD_ALLOWED_HOSTS` to the exact API custom hostname and the Render service hostname used for health checks. Set `CYBERSHIELD_ALLOWED_ORIGINS` to the exact Pages custom origin (for example `https://app.example.com`); do not use `*`.
+- Set the Render HTTP health-check path to `/api/v1/ready`. `/api/v1/health` is liveness-only; readiness also checks the database.
 
-```bash
-gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
-```
+### 3. Neon PostgreSQL and migrations
 
-### 3. Production Hardening Checklist
+- Create/select an isolated production database and copy its connection URL from Neon. Use the pooled connection when appropriate.
+- Set Render `DATABASE_URL` to that URL with the driver scheme `postgresql+psycopg://` and retain Neon TLS parameters such as `sslmode=require`. Plain `postgresql://` URLs are normalized by the app, but production still requires an explicit TLS mode.
+- Do not set `TEST_DATABASE_URL` on the production service. Tests can drop/recreate tables in their isolated database.
+- Before starting the production service, run `alembic upgrade head` from `backend/` against the production URL from a trusted migration environment. Production startup requires the migrated schema and does not auto-create tables.
+- Neon Free currently offers persistent database storage with scale-to-zero and usage limits; review current terms and quotas before launch. The Render free filesystem is not persistent, so do not store user data or models there.
 
-- [ ] Set `CYBERSHIELD_COOKIE_SECURE=true` in production to enforce HTTPS-only cookies.
-- [ ] Set `CYBERSHIELD_ALLOW_NON_LOOPBACK=true` only when running behind a trusted reverse proxy.
-- [ ] Ensure `CYBERSHIELD_SECRET_KEY` is set to a cryptographically random 64-character secret.
-- [ ] Connect to managed PostgreSQL with SSL mode enabled (`sslmode=require`).
-- [ ] Set `CYBERSHIELD_ALLOWED_ORIGINS` to your production domain(s).
+### 4. Production environment checklist
+
+- `CYBERSHIELD_SECRET_KEY`: generate a random value, e.g. `python -c "import secrets; print(secrets.token_hex(32))"`. It is currently a production startup guard, not a session-token signing key.
+- `CYBERSHIELD_COOKIE_SECURE=true`; production refuses insecure cookies.
+- `CYBERSHIELD_AUTO_CREATE_TABLES=false` and `CYBERSHIELD_ALLOW_SQLITE_FALLBACK=false` (the production defaults).
+- Keep `CYBERSHIELD_RATE_LIMIT_ENABLED=true`. Its in-memory limits are per-process and are not a substitute for platform edge-level abuse controls.
+- Keep `CYBERSHIELD_ASSISTANT_ONLINE_ENABLED=false` and CTI unconfigured unless external use is approved. For Gemini, enable it only with an API key and the user's per-request consent. Safe Browsing is an optional non-commercial prototype provider; Google Web Risk is not implemented.
+- Never publish `.env`, API keys, database URLs, or model files.
+
+### 5. Cookie/site requirement and smoke tests
+
+The app's session cookie is `SameSite=Lax`. The default `*.pages.dev` and `*.onrender.com` hosts are different sites, so browser account sessions may not work reliably across them. Use custom frontend and API hostnames under the same registrable domain (for example `app.example.com` and `api.example.com`) with HTTPS, or implement a same-origin Pages Function proxy before enabling account features. Configure matching CORS origins and allowed API hosts.
+
+After deployment, verify:
+1. `GET https://api.example.com/api/v1/health` and `/api/v1/ready` return `200`.
+2. The Pages site loads, routes render, and its Network panel shows API requests going to the configured API origin rather than returning `index.html`.
+3. Browser preflight and credentialed requests succeed only for the configured Pages origin.
+4. Register/login set an `HttpOnly`, `Secure`, `SameSite=Lax` cookie; `/api/v1/auth/me` works from the Pages UI, and logout revokes the session.
+5. Account sync stays disabled until consent; M1 works with no CTI key, and CTI only runs after the user enables it.
+6. M2 checks/generates locally; M3 exports only on request; M4 remains simulated; M5 only offers completion records after passing; test the games and voice features on actual supported devices/models.
 
 ---
 

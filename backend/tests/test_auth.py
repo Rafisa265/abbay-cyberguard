@@ -96,6 +96,7 @@ def test_registration_and_password_hashing(client, db_session):
     assert data["user"]["display_name"] == "Abebe Bikila"
     assert data["user"]["email"] == "abebe@example.com"
     assert data["user"]["preferences"]["cloud_progress_sync_enabled"] is False
+    assert "token" not in data
 
     # Check cookies
     assert auth.COOKIE_NAME in r.cookies
@@ -181,8 +182,9 @@ def test_login_success_and_failure(client):
     })
     assert r.status_code == 200
     assert auth.COOKIE_NAME in r.cookies
-    token = r.json()["token"]
+    token = r.cookies[auth.COOKIE_NAME]
     assert token is not None
+    assert "token" not in r.json()
 
     # Failed login: incorrect password
     r_bad_pw = client.post("/api/v1/auth/login", json={
@@ -209,7 +211,7 @@ def test_logout_and_session_invalidation(client):
         "confirm_password": "LogoutPassword123",
     })
     assert reg.status_code == 201, reg.text
-    token = reg.json()["token"]
+    token = reg.cookies[auth.COOKIE_NAME]
 
     # Verify /me is accessible
     r_me = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
@@ -246,7 +248,7 @@ def test_progress_consent_and_isolation(client):
         "confirm_password": "AlphaPassword123",
     })
     assert r_a.status_code == 201, r_a.text
-    token_a = r_a.json()["token"]
+    token_a = r_a.cookies[auth.COOKIE_NAME]
 
     # Register User B
     r_b = client.post("/api/v1/auth/register", json={
@@ -256,7 +258,7 @@ def test_progress_consent_and_isolation(client):
         "confirm_password": "BetaPassword123",
     })
     assert r_b.status_code == 201, r_b.text
-    token_b = r_b.json()["token"]
+    token_b = r_b.cookies[auth.COOKIE_NAME]
 
     # 1. Cloud progress sync is OFF by default
     r_prog_default = client.get("/api/v1/auth/progress", headers={"Authorization": f"Bearer {token_a}"})
@@ -352,4 +354,3 @@ def test_static_spa_serving(client):
     r = client.get("/")
     assert r.status_code == 200
     assert "html" in r.headers.get("content-type", "").lower()
-

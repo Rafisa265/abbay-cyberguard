@@ -4,7 +4,6 @@ Design:
 - BaseCTIAdapter: Abstract base adapter defining CTI provider interface.
 - GoogleSafeBrowsingV5Adapter: Implementation of Google Safe Browsing API v5 (hashes:search)
   for non-commercial, educational competition use.
-- GoogleWebRiskAdapter: Adapter reference for commercial deployment (Google Web Risk API).
 - MockCTIAdapter: Deterministic adapter for testing, development, and offline evaluation.
 
 Security Guarantees:
@@ -568,43 +567,20 @@ class GoogleSafeBrowsingV5Adapter(BaseCTIAdapter):
 
 
 class GoogleWebRiskAdapter(BaseCTIAdapter):
-    """Google Web Risk API Adapter.
-    
-    Commercial alternative to Google Safe Browsing.
-    Safe Browsing is non-commercial only; commercial deployments should use Web Risk.
-    """
+    """Unavailable placeholder; Google Web Risk requests are not implemented."""
 
     name = "google_web_risk"
 
-    def __init__(
-        self,
-        api_key: Optional[str] = None,
-        endpoint: Optional[str] = None,
-        timeout: Optional[float] = None,
-    ):
-        self.api_key = api_key if api_key is not None else config.CTI_API_KEY
-        self.endpoint = endpoint or config.WEB_RISK_ENDPOINT
-        self.timeout = timeout if timeout is not None else config.CTI_TIMEOUT_SECONDS
-
     def is_configured(self) -> bool:
-        return bool(self.api_key and self.api_key.strip())
+        return False
 
     def check_url(self, canonical_url: str) -> CTIResult:
-        if not self.is_configured():
-            return CTIResult(
-                provider=self.name,
-                status="unavailable",
-                threat_types=[],
-                details="Google Web Risk API key is not configured for commercial use.",
-                unavailable_reason="CONFIG_MISSING",
-            )
-        # Web Risk hash lookup implementation stub
         return CTIResult(
             provider=self.name,
-            status="no_threat_found",
+            status="unavailable",
             threat_types=[],
-            details="Google Web Risk evaluated URL: no matching threat found.",
-            unavailable_reason=None,
+            details="Google Web Risk integration is not implemented.",
+            unavailable_reason="PROVIDER_ERROR",
         )
 
 
@@ -688,29 +664,6 @@ class MockCTIAdapter(BaseCTIAdapter):
             unavailable_reason=None,
         )
 
-
-class LocalFeedCTIAdapter(BaseCTIAdapter):
-    """Local Threat Feed Adapter.
-
-    Loads an administrator-supplied threat intelligence feed from the local filesystem.
-    Performs deterministic, completely offline matching of URLs and hostnames against
-    validated records. Never makes external network requests, DNS queries, or socket connections.
-
-    Supported JSON schema:
-    {
-      "feed_format_version": "1.0",
-      "feed_name": "string",
-      "feed_updated_at": "ISO-8601 string",
-      "source": "string",
-      "records": [
-        {
-          "type": "domain" | "url",
-          "target": "string",
-          "threat_type": "string"
-        }
-      ]
-    }
-    """
 
 MAX_LOCAL_FEED_FILE_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 MAX_LOCAL_FEED_RECORDS = 250_000

@@ -108,7 +108,6 @@ class UserResponse(BaseModel):
 
 class AuthResponse(BaseModel):
     user: UserResponse
-    token: Optional[str] = None
     message: str = "Success"
 
 
@@ -282,6 +281,5 @@ class DailySubmitResponse(BaseModel):
     xp_awarded: int
     already_completed: bool
     badge_awarded: Optional[str] = None
-
 
 

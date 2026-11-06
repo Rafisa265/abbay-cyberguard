@@ -92,7 +92,6 @@ def cti_status():
         "provider": adapter.name,
         "configured": adapter.is_configured(),
         "educational_prototype": True,
-        "commercial_alternative": "google_web_risk",
     }
 
 

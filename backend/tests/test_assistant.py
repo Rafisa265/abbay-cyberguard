@@ -173,6 +173,28 @@ def test_missing_provider_returns_truthful_unavailable(monkeypatch):
     assert "unavailable" in data["reply"].lower()
 
 
+def test_gemini_disabled_by_server_setting_even_with_consent(monkeypatch):
+    """The server-side online kill-switch prevents Gemini use even when the caller consents."""
+    monkeypatch.setattr(config, "ASSISTANT_PROVIDER", "gemini")
+    monkeypatch.setattr(config, "ASSISTANT_API_KEY", "configured-test-key")
+    monkeypatch.setattr(config, "ASSISTANT_ONLINE_ENABLED", False)
+    monkeypatch.setattr(
+        "app.assistant.provider.urllib.request.urlopen",
+        lambda *args, **kwargs: pytest.fail("disabled Gemini provider attempted external network access"),
+    )
+
+    payload = {
+        "message": "Compare several current campaigns and give recent live evidence",
+        "language": "en",
+        "online_consent": True,
+        "force_online": True,
+    }
+    r = client.post("/api/v1/assistant/chat", json=payload, headers=HEADERS)
+    assert r.status_code == 200
+    assert r.json()["status"] == STATUS_ONLINE_UNAVAILABLE
+    assert r.json()["engine"] == "offline_knowledge_v1"
+
+
 # ==============================================================================
 # 9. Provider Timeout and Errors Do Not Break Chat or Leak Secrets
 # ==============================================================================
@@ -578,5 +600,3 @@ def test_scenario_g_partial_offline_plus_search_findings(monkeypatch):
     assert "phishing" in data["reply"].lower()
     assert "cisa.gov" in data["reply"] or "nist.gov" in data["reply"]
     assert "Retrieved:" in data["reply"]
-
-

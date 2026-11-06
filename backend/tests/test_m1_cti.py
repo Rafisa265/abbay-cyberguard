@@ -320,9 +320,17 @@ class TestM1ApiEndpoints:
         assert "provider" in body
         assert "configured" in body
         assert body["educational_prototype"] is True
-        assert body["commercial_alternative"] == "google_web_risk"
+        assert "commercial_alternative" not in body
         # Guarantee: No API keys are leaked in status
         assert "key" not in body and "api_key" not in body
+
+    def test_web_risk_placeholder_never_reports_clean(self):
+        adapter = GoogleWebRiskAdapter()
+        assert not adapter.is_configured()
+        result = adapter.check_url("https://example.com/")
+        assert result.status == "unavailable"
+        assert result.unavailable_reason == "PROVIDER_ERROR"
+        assert "not implemented" in result.details.lower()
 
     def test_check_with_mock_malicious_fixture(self, monkeypatch):
         monkeypatch.setattr(config, "CTI_PROVIDER", "mock")
@@ -987,6 +995,4 @@ class TestLocalFeedCTIAdapter:
         # CTI does NOT overwrite heuristic findings; URL and canonical URL are faithfully returned
         assert data["url"] == "http://192.168.1.1/login"
         assert data["canonical_url"] == "http://192.168.1.1/login"
-
-
 

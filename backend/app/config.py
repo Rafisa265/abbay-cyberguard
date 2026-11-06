@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 
 def _load_env_file() -> None:
@@ -32,7 +33,7 @@ AUTO_CREATE_TABLES = (
 )
 ENABLE_DOCS = os.getenv("CYBERSHIELD_ENABLE_DOCS", "false" if IS_PRODUCTION else "true").lower() == "true"
 
-PORT = int(os.getenv("CYBERSHIELD_PORT", "8000"))
+PORT = int(os.getenv("CYBERSHIELD_PORT", os.getenv("PORT", "8000")))
 BIND = os.getenv("CYBERSHIELD_BIND", "127.0.0.1")
 ALLOW_NON_LOOPBACK = os.getenv("CYBERSHIELD_ALLOW_NON_LOOPBACK", "false").lower() == "true"
 LOOPBACK_NAMES = {"127.0.0.1", "::1", "localhost"}
@@ -92,14 +93,36 @@ OROMO_TTS_MODEL_DIR = Path(os.getenv(
     str(TTS_DIR / "oromo")
 ))
 
-DATABASE_URL = os.getenv(
+def _normalize_database_url(url: str) -> str:
+    if url.startswith("postgres://"):
+        return "postgresql+psycopg://" + url[len("postgres://"):]
+    if url.startswith("postgresql://"):
+        return "postgresql+psycopg://" + url[len("postgresql://"):]
+    return url
+
+
+DATABASE_URL = _normalize_database_url(os.getenv(
     "DATABASE_URL",
     "postgresql+psycopg://postgres@127.0.0.1:5432/cybershield_dev"
-)
-TEST_DATABASE_URL = os.getenv(
+))
+TEST_DATABASE_URL = _normalize_database_url(os.getenv(
     "TEST_DATABASE_URL",
     "postgresql+psycopg://postgres@127.0.0.1:5432/cybershield_test"
-)
+))
+
+
+def _validate_production_database_url(url: str) -> None:
+    if urlsplit(url).scheme.startswith("postgresql"):
+        sslmode = parse_qs(urlsplit(url).query).get("sslmode", [""])[0].lower()
+        if sslmode in {"require", "verify-ca", "verify-full"}:
+            return
+        raise RuntimeError(
+            "Production DATABASE_URL must require TLS with sslmode=require or stronger."
+        )
+
+
+if IS_PRODUCTION:
+    _validate_production_database_url(DATABASE_URL)
 SECRET_KEY = os.getenv(
     "CYBERSHIELD_SECRET_KEY",
     "dev_secret_key_cybershield_ethiopia_local_only_1234567890"
@@ -134,9 +157,8 @@ CTI_LOCAL_FEED_PATH = os.getenv(
     str(Path(__file__).resolve().parent / "data" / "threat_feed.json"),
 )
 
-# Fixed CTI endpoints (SSRF protection: backend contacts only hard-coded provider URLs)
+# Fixed CTI endpoint (SSRF protection: backend contacts only this hard-coded provider URL)
 SAFE_BROWSING_V5_ENDPOINT = "https://safebrowsing.googleapis.com/v5/hashes:search"
-WEB_RISK_ENDPOINT = "https://webrisk.googleapis.com/v1/hashes:search"
 
 # Dynamic AI Artwork Generator Settings
 # Offline-first: default is disabled / unconfigured unless explicitly approved and configured.
@@ -164,4 +186,4 @@ ASSISTANT_TIMEOUT_SECONDS = float(os.getenv("CYBERSHIELD_ASSISTANT_TIMEOUT_SECON
 def check_bind(bind: str = BIND, allow: bool = ALLOW_NON_LOOPBACK) -> None:
     """SR-01: refuse non-loopback binding unless explicitly enabled."""
     if bind not in LOOPBACK_NAMES and not allow:
-        raise SystemExit("Refusing non-loopback bind (set CYBERSHIELD_ALLOW_NON_LOOPBACK=true; unsupported).")
+        raise SystemExit("Refusing non-loopback bind (set CYBERSHIELD_ALLOW_NON_LOOPBACK=true to enable explicitly).")
