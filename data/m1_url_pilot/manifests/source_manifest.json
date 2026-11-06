@@ -1,0 +1,81 @@
+{
+  "manifest_version": "1.0",
+  "generated_at": "2026-10-26T18:54:39.786506+00:00",
+  "sources": {
+    "tranco": {
+      "source_name": "Tranco Research-Oriented Top Sites Ranking",
+      "official_url": "https://tranco-list.eu/",
+      "list_id": "W3ZV9",
+      "snapshot_id": "tranco_W3ZV9_20261025",
+      "download_url": "https://tranco-list.eu/download/W3ZV9/1000",
+      "attribution": "Victor Le Pochat, Tom Van Goethem, Samaneh Tajalizadehkashani, and Wouter Joosen (NDSS 2019)",
+      "license": "Composite ranking from 5 underlying sources: Cisco Umbrella (free), Majestic (CC BY 3.0), Farsight (free), CrUX (CC BY-SA 4.0), and Cloudflare Radar (CC BY-NC 4.0)",
+      "permitted_use": "Permitted for non-commercial cybersecurity research and offline evaluation with paper citation. Commercial downstream use requires legal/terms review.",
+      "licensing_review_status": "requires_legal_terms_review_for_commercial_use",
+      "status": "acquired_candidate_benign",
+      "label_assigned": "candidate_benign_domain",
+      "records_acquired": 1000,
+      "notes": "Candidate popular domains only; not proof that all URLs on domain are safe. Unresolved licensing interpretation: Cloudflare Radar component is licensed under CC BY-NC 4.0 (Non-Commercial); downstream commercial applicability requires legal terms review."
+    },
+    "phishtank": {
+      "source_name": "PhishTank (Cisco Talos Intelligence Group)",
+      "official_url": "https://phishtank.org/developer_info.php",
+      "download_url": "http://data.phishtank.com/data/<app_key>/online-valid.json",
+      "attribution": "Data provided by PhishTank (Cisco Talos)",
+      "license": "Free for non-commercial / research use with attribution; commercial requires Talos agreement",
+      "permitted_use": "Non-commercial cybersecurity research",
+      "status": "skipped_no_api_key",
+      "blocker_reason": "PhishTank bulk downloads require an application key registered with Cisco Talos. No key is available in the environment (.env contains only Google Safe Browsing key). Per strict safety rules, live PhishTank download is skipped.",
+      "records_acquired": 0,
+      "notes": "Skipped per safety instructions: no API key hard-coded or fabricated."
+    },
+    "urlhaus": {
+      "source_name": "URLhaus (abuse.ch AG / Spamhaus Technology Limited)",
+      "official_url": "https://urlhaus.abuse.ch/",
+      "feed_url": "https://urlhaus.abuse.ch/downloads/csv_recent/",
+      "api_docs_url": "https://urlhaus.abuse.ch/api/",
+      "terms_url": "https://abuse.ch/terms-of-use/",
+      "attribution": "Data provided by URLhaus (abuse.ch AG / Spamhaus Technology Limited)",
+      "license": "abuse.ch Terms of Use (effective Nov 4, 2025, updated Oct 21, 2026). Free for not-for-profit purposes under Fair Use Principles. Commercial use requires paid Spamhaus subscription. NOT CC0.",
+      "permitted_use": "Non-commercial cybersecurity defense, incident response, and academic research only",
+      "status": "blocked_auth_key_required_and_endpoint_gone",
+      "blocker_reason": "Legacy endpoint https://urlhaus.abuse.ch/downloads/csv_recent/ returned HTTP 410 Gone. abuse.ch Terms of Use (effective Nov 2025 / updated Oct 2026) require an Auth-Key from https://auth.abuse.ch/ for database export downloads. No key is configured in the environment. Per strict repository boundaries, live download is skipped.",
+      "threat_classification_policy": "URLhaus tracks malware distribution sites (threat='malware_download'). Generic malware URLs must NOT be labeled as phishing unless explicitly classified or tagged as phishing by the source.",
+      "records_acquired": 0,
+      "notes": "Live network acquisition skipped per safety boundaries. Isolated adapter and test fixtures implemented to parse and validate URLhaus schema if a valid snapshot or auth key is later authorized."
+    },
+    "uci_phiusiil": {
+      "source_name": "PhiUSIIL Phishing URL Dataset (UCI Machine Learning Repository)",
+      "official_url": "https://archive.ics.uci.edu/dataset/967/phiusiil%2Bphishing%2Burl%2Bwebsite",
+      "download_url": "https://archive.ics.uci.edu/static/public/967/phiusiil+phishing+url+dataset.zip",
+      "citation": "Prasad, A. & Chandra, S. (2024). PhiUSIIL Phishing URL (Website) [Dataset]. UCI Machine Learning Repository. https://doi.org/10.1016/j.cose.2023.103545",
+      "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+      "permitted_use": "Open access research under CC BY 4.0",
+      "status": "acquired_isolated_benchmark",
+      "records_acquired": 1000,
+      "notes": "Research benchmark only. Discarded 50+ HTML/DOM features; preserved raw URL and label only."
+    },
+    "mozilla_public_suffix_list": {
+      "source_name": "Mozilla Public Suffix List (PSL)",
+      "official_url": "https://publicsuffix.org/",
+      "download_url": "https://publicsuffix.org/list/public_suffix_list.dat",
+      "license": "Mozilla Public License 2.0 (MPL-2.0)",
+      "permitted_use": "Free distribution and larger-work combination per MPL-2.0. Unmodified file distributed under MPL-2.0.",
+      "status": "vendored_offline_snapshot",
+      "version": "2026-10-22_08-36-41_UTC",
+      "commit": "8437e5262f13305f94087abe699b4fe2be1d1de8",
+      "sha256": "0232f4df0831911356e8ee1f4d5c3b6b12c0ed3f6bd66b0f81c8ab5d3d49e9ca",
+      "resource_path": "data/m1_url_pilot/resources/public_suffix_list.dat",
+      "notes": "Pinned offline resource. Zero network calls at runtime. Distinguishes ICANN (6,949 rules) and PRIVATE (3,448 rules) sections. Used for authoritative registered domain resolution and tenant-isolated domain-grouped splitting."
+    }
+  },
+  "audit_summary": {
+    "total_raw_input": 2000,
+    "total_accepted": 988,
+    "total_quarantined": 12,
+    "total_duplicates": 0,
+    "total_benchmark": 1000,
+    "candidate_benign_records": 988,
+    "verified_phishing_records": 0
+  }
+}

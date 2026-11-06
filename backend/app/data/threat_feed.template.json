@@ -1,0 +1,9 @@
+{
+  "_notice": "DO NOT USE AS PRODUCTION THREAT FEED. This is a structural template provided for system administrators. It contains ZERO threat indicators. When pointed to by CYBERSHIELD_CTI_LOCAL_FEED_PATH, the system safely reports 'unavailable' (FEED_EMPTY) and will never report 'no_threat_found'.",
+  "feed_format_version": "1.0",
+  "feed_name": "CyberShield Ethiopia Local Threat Intelligence Feed (Template)",
+  "feed_updated_at": "",
+  "source": "unconfigured_template",
+  "description": "Administrator-supplied offline threat intelligence database format.",
+  "records": []
+}

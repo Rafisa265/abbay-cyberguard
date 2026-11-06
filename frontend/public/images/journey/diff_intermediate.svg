@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#040b19"/>
+      <stop offset="50%" stop-color="#081836"/>
+      <stop offset="100%" stop-color="#020914"/>
+    </linearGradient>
+    <linearGradient id="blueCyanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f0ff"/>
+      <stop offset="50%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <radialGradient id="centerGlow" cx="50%" cy="45%" r="42%">
+      <stop offset="0%" stop-color="#00f0ff" stop-opacity="0.32"/>
+      <stop offset="55%" stop-color="#3b82f6" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#040b19" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    <pattern id="cyberGrid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#00f0ff" stroke-width="0.75" stroke-opacity="0.12"/>
+    </pattern>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="450" fill="url(#bgGrad)"/>
+  <rect width="800" height="450" fill="url(#cyberGrid)"/>
+  <circle cx="400" cy="210" r="195" fill="url(#centerGlow)"/>
+
+  <!-- Orbital Rings -->
+  <circle cx="400" cy="210" r="175" fill="none" stroke="#00f0ff" stroke-width="1.2" stroke-dasharray="16 12" stroke-opacity="0.35"/>
+  <circle cx="400" cy="210" r="130" fill="none" stroke="#3b82f6" stroke-width="1.8" stroke-dasharray="24 16" stroke-opacity="0.5"/>
+  <circle cx="400" cy="210" r="85" fill="none" stroke="#00f0ff" stroke-width="1" stroke-opacity="0.6"/>
+
+  <!-- Circuit Network Lines -->
+  <path d="M 120 210 L 250 210 L 290 170 M 680 210 L 550 210 L 510 170" fill="none" stroke="#00f0ff" stroke-width="1.5" stroke-opacity="0.4"/>
+  <circle cx="120" cy="210" r="4" fill="#00f0ff"/>
+  <circle cx="680" cy="210" r="4" fill="#00f0ff"/>
+
+  <!-- Outer Cyber Crest Shield -->
+  <path d="M 400 85 L 515 135 L 515 250 C 515 320 460 360 400 380 C 340 360 285 320 285 250 L 285 135 Z"
+        fill="#071933" stroke="url(#blueCyanGrad)" stroke-width="4" filter="url(#neonGlow)"/>
+
+  <!-- Inner Shield Core -->
+  <path d="M 400 110 L 490 150 L 490 242 C 490 298 445 334 400 352 C 355 334 310 298 310 242 L 310 150 Z"
+        fill="#031124" stroke="#00f0ff" stroke-width="1.5" stroke-opacity="0.7"/>
+
+  <!-- Intermediate Emblem: Dual Key / Cyber Lock / Ethiopian Cross Diamond motif -->
+  <polygon points="400,160 435,195 400,230 365,195" fill="#00f0ff" fill-opacity="0.15" stroke="#00f0ff" stroke-width="2.5" filter="url(#neonGlow)"/>
+  <circle cx="400" cy="195" r="10" fill="#00f0ff"/>
+
+  <!-- Padlock Shackle and Base -->
+  <rect x="375" y="225" width="50" height="38" rx="6" fill="#0b2447" stroke="#38bdf8" stroke-width="2"/>
+  <circle cx="400" cy="240" r="4" fill="#38bdf8"/>
+  <path d="M 400 244 L 400 254" stroke="#38bdf8" stroke-width="2"/>
+
+  <!-- Tech Corner Brackets -->
+  <path d="M 30 30 L 70 30 M 30 30 L 30 70" stroke="#00f0ff" stroke-width="3" fill="none"/>
+  <path d="M 770 30 L 730 30 M 770 30 L 770 70" stroke="#00f0ff" stroke-width="3" fill="none"/>
+  <path d="M 30 420 L 70 420 M 30 420 L 30 380" stroke="#00f0ff" stroke-width="3" fill="none"/>
+  <path d="M 770 420 L 730 420 M 770 420 L 770 380" stroke="#00f0ff" stroke-width="3" fill="none"/>
+
+  <!-- Status Bar / Label Ribbon -->
+  <rect x="250" y="390" width="300" height="34" rx="17" fill="#061c36" stroke="#00f0ff" stroke-width="1.5"/>
+  <circle cx="272" cy="407" r="5" fill="#00f0ff"/>
+  <text x="400" y="412" font-family="'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700" letter-spacing="3" fill="#38bdf8" text-anchor="middle">TIER 2 • INTERMEDIATE GUARDIAN</text>
+</svg>

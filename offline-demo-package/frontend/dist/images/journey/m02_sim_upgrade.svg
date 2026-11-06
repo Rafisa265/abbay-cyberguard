@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg-grad-m02" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#08071a" />
+      <stop offset="50%" stop-color="#130e2e" />
+      <stop offset="100%" stop-color="#0b1329" />
+    </linearGradient>
+    <linearGradient id="purple-cyan-glow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#a855f7" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+    <radialGradient id="sim-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#a855f7" stop-opacity="0.3" />
+      <stop offset="80%" stop-color="#06b6d4" stop-opacity="0.05" />
+      <stop offset="100%" stop-color="#08071a" stop-opacity="0" />
+    </radialGradient>
+    <filter id="neon-glow-m02" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Deep Indigo Background -->
+  <rect width="800" height="450" fill="url(#bg-grad-m02)" />
+
+  <!-- Telecom Signal Wave Concentric Arcs -->
+  <g fill="none" stroke="#8b5cf6" opacity="0.3">
+    <circle cx="240" cy="225" r="80" stroke-width="1.5" stroke-dasharray="6,6" />
+    <circle cx="240" cy="225" r="140" stroke-width="1.5" stroke-dasharray="8,8" />
+    <circle cx="240" cy="225" r="200" stroke-width="1.5" stroke-dasharray="10,10" />
+  </g>
+
+  <!-- Telecom Transmission Tower (Futuristic Stylized) -->
+  <g transform="translate(240, 100)" stroke="url(#purple-cyan-glow)" stroke-width="2" fill="none">
+    <path d="M 0,0 L -50,220 M 0,0 L 50,220" />
+    <line x1="-15" y1="60" x2="15" y2="60" />
+    <line x1="-30" y1="120" x2="30" y2="120" />
+    <line x1="-42" y1="170" x2="42" y2="170" />
+    <circle cx="0" cy="0" r="10" fill="#a855f7" filter="url(#neon-glow-m02)" />
+    <circle cx="0" cy="0" r="4" fill="#ffffff" />
+  </g>
+
+  <!-- Center Right: Glowing Cyber SIM Card with Vault Lock -->
+  <g transform="translate(520, 225)" filter="url(#neon-glow-m02)">
+    <circle cx="0" cy="0" r="150" fill="url(#sim-glow)" />
+
+    <!-- SIM Card Body -->
+    <path d="M -70,-100 L 40,-100 L 70,-70 L 70,100 L -70,100 Z" 
+          fill="#1e1b4b" stroke="#06b6d4" stroke-width="3" />
+    
+    <!-- Gold Microchip Contacts -->
+    <rect x="-40" y="-50" width="80" height="100" rx="6" fill="#0f172a" stroke="#eab308" stroke-width="2" />
+    <path d="M -40,-20 L 40,-20 M -40,10 L 40,10 M 0,-50 L 0,-20 M 0,10 L 0,50" 
+          stroke="#eab308" stroke-width="1.5" />
+
+    <!-- Holographic 6-Digit Confidential OTP Lock Shield -->
+    <g transform="translate(0, 15)">
+      <circle cx="0" cy="0" r="32" fill="#030712" stroke="#22c55e" stroke-width="2" />
+      <path d="M -12,-4 L -12,-12 C -12,-20 12,-20 12,-12 L 12,-4" fill="none" stroke="#22c55e" stroke-width="3" />
+      <rect x="-16" y="-4" width="32" height="24" rx="4" fill="#15803d" />
+      <circle cx="0" cy="8" r="3" fill="#ffffff" />
+    </g>
+  </g>
+
+  <!-- Intercept Warning Terminal Banner -->
+  <g transform="translate(60, 340)">
+    <rect x="0" y="0" width="360" height="56" rx="8" fill="#0f172a" stroke="#ef4444" stroke-width="1.5" opacity="0.95" />
+    <text x="16" y="24" fill="#ef4444" font-family="system-ui, sans-serif" font-size="12" font-weight="700">⚠️ UNAUTHORIZED SIM-SWAP INTERCEPT</text>
+    <text x="16" y="44" fill="#94a3b8" font-family="monospace" font-size="10">BLOCKED: OTP REQUEST FROM UNVERIFIED GATEWAY</text>
+  </g>
+
+  <!-- Mission Badge & Status -->
+  <g transform="translate(60, 40)">
+    <rect x="0" y="0" width="180" height="26" rx="4" fill="#1e1b4b" stroke="#7c3aed" stroke-width="1" />
+    <text x="12" y="17" fill="#c084fc" font-family="monospace" font-size="11" font-weight="700">M02 // TELECOM GUARDIAN</text>
+  </g>
+</svg>

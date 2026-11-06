@@ -1,0 +1,74 @@
+{
+  "summary": {
+    "total_raw_input": 2000,
+    "total_accepted": 988,
+    "total_quarantined": 12,
+    "total_duplicates": 0,
+    "total_benchmark": 1000,
+    "candidate_benign_records": 988,
+    "verified_phishing_records": 0
+  },
+  "counts_by_source": {
+    "tranco": {
+      "raw_input": 1000,
+      "accepted": 988,
+      "quarantined": 12,
+      "duplicate": 0
+    },
+    "phishtank": {
+      "raw_input": 0,
+      "accepted": 0,
+      "quarantined": 0,
+      "duplicate": 0
+    },
+    "urlhaus": {
+      "raw_input": 0,
+      "accepted": 0,
+      "quarantined": 0,
+      "duplicate": 0
+    },
+    "phiusiil_benchmark": {
+      "raw_input": 1000,
+      "accepted": 0,
+      "quarantined": 0,
+      "duplicate": 0
+    }
+  },
+  "label_distribution": {
+    "candidate_benign_domain": 988
+  },
+  "label_status_distribution": {
+    "candidate": 988
+  },
+  "verification_status_distribution": {
+    "tranco_ranked_pld": 988
+  },
+  "missing_fields": {},
+  "quarantine_reasons": {
+    "MULTI_TENANT_PLATFORM_NOT_UNIFORMLY_SAFE": 12
+  },
+  "cross_source_overlap": {
+    "pilot_unique_domains": 988,
+    "benchmark_unique_domains": 845,
+    "url_overlap_with_benchmark": 0,
+    "domain_overlap_with_benchmark": 13,
+    "overlapping_domain_samples": [
+      "aliyuncs.com",
+      "amazonaws.com",
+      "appspot.com",
+      "box.com",
+      "com.ar",
+      "duckdns.org",
+      "free.fr",
+      "myqcloud.com",
+      "netlify.app",
+      "nih.gov"
+    ]
+  },
+  "split_leakage_audit": {
+    "train_val_overlap": 0,
+    "train_test_overlap": 0,
+    "val_test_overlap": 0,
+    "is_leakage_free": true
+  }
+}

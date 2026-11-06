@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgP01" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#050b18"/>
+      <stop offset="50%" stop-color="#0c1830"/>
+      <stop offset="100%" stop-color="#040914"/>
+    </linearGradient>
+    <linearGradient id="amberCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="50%" stop-color="#00f0ff"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <radialGradient id="glowP01" cx="50%" cy="45%" r="42%">
+      <stop offset="0%" stop-color="#00f0ff" stop-opacity="0.28"/>
+      <stop offset="60%" stop-color="#f59e0b" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#050b18" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="neonP01" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    <pattern id="gridP01" width="36" height="36" patternUnits="userSpaceOnUse">
+      <path d="M 36 0 L 0 0 0 36" fill="none" stroke="#00f0ff" stroke-width="0.75" stroke-opacity="0.12"/>
+    </pattern>
+  </defs>
+
+  <rect width="800" height="450" fill="url(#bgP01)"/>
+  <rect width="800" height="450" fill="url(#gridP01)"/>
+  <circle cx="400" cy="210" r="190" fill="url(#glowP01)"/>
+
+  <!-- Contract Dossier Hologram -->
+  <rect x="290" y="80" width="220" height="280" rx="14" fill="#071830" stroke="url(#amberCyan)" stroke-width="3" filter="url(#neonP01)"/>
+  <rect x="315" y="110" width="170" height="14" rx="4" fill="#00f0ff" fill-opacity="0.3"/>
+  <rect x="315" y="135" width="120" height="8" rx="3" fill="#94a3b8" fill-opacity="0.5"/>
+  <rect x="315" y="152" width="145" height="8" rx="3" fill="#94a3b8" fill-opacity="0.3"/>
+  <rect x="315" y="169" width="105" height="8" rx="3" fill="#94a3b8" fill-opacity="0.3"/>
+
+  <!-- Warning Stamp: 500 ETB Advance Fee Alert -->
+  <g transform="translate(400, 235) rotate(-8)">
+    <rect x="-95" y="-24" width="190" height="48" rx="8" fill="#1e1022" stroke="#f43f5e" stroke-width="2.5" filter="url(#neonP01)"/>
+    <text x="0" y="5" font-family="'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="800" letter-spacing="2" fill="#fda4af" text-anchor="middle">500 ETB FEE TRAP</text>
+  </g>
+
+  <!-- Protective Career Center Seal -->
+  <circle cx="400" cy="315" r="28" fill="#031124" stroke="#10b981" stroke-width="2.5"/>
+  <path d="M 390 315 L 397 322 L 412 308" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Telemetry lines -->
+  <line x1="100" y1="210" x2="260" y2="210" stroke="#00f0ff" stroke-width="1.5" stroke-dasharray="6 6" stroke-opacity="0.4"/>
+  <circle cx="100" cy="210" r="5" fill="#00f0ff"/>
+  <line x1="700" y1="210" x2="540" y2="210" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="6 6" stroke-opacity="0.4"/>
+  <circle cx="700" cy="210" r="5" fill="#f59e0b"/>
+
+  <!-- Status Bar -->
+  <rect x="230" y="390" width="340" height="34" rx="17" fill="#061b36" stroke="#00f0ff" stroke-width="1.5"/>
+  <circle cx="252" cy="407" r="5" fill="#00f0ff"/>
+  <text x="400" y="412" font-family="'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="700" letter-spacing="2" fill="#38bdf8" text-anchor="middle">CAMPUS RECRUITMENT DEFENSE MATRIX</text>
+</svg>

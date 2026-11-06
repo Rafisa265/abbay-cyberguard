@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" aria-label="Ethio Telecom Telebirr Logo">
+  <defs>
+    <linearGradient id="tb-cyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00AEEF"/>
+      <stop offset="100%" stop-color="#0072BC"/>
+    </linearGradient>
+    <linearGradient id="tb-green" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8DC63F"/>
+      <stop offset="100%" stop-color="#39B54A"/>
+    </linearGradient>
+    <linearGradient id="tb-orange" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F7941E"/>
+      <stop offset="100%" stop-color="#F15A24"/>
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="10" fill="#003B5C"/>
+  <!-- Telebirr Emblem: Connected Digital Nodes & Mobile Waves -->
+  <path d="M10 24c0-7.7 6.3-14 14-14s14 6.3 14 14" fill="none" stroke="url(#tb-cyan)" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M15 24c0-5 4-9 9-9s9 4 9 9" fill="none" stroke="url(#tb-green)" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="24" cy="24" r="4.5" fill="url(#tb-orange)"/>
+  <!-- Base Network Signal Bar -->
+  <rect x="21.5" y="31" width="5" height="7" rx="2" fill="url(#tb-green)"/>
+  <rect x="13.5" y="34" width="5" height="4" rx="1.5" fill="url(#tb-cyan)"/>
+  <rect x="29.5" y="34" width="5" height="4" rx="1.5" fill="url(#tb-cyan)"/>
+</svg>

@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg7" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#040915" />
+      <stop offset="50%" stop-color="#0d1b38" />
+      <stop offset="100%" stop-color="#141128" />
+    </linearGradient>
+    <linearGradient id="gold-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde047" />
+      <stop offset="50%" stop-color="#eab308" />
+      <stop offset="100%" stop-color="#ca8a04" />
+    </linearGradient>
+  </defs>
+
+  <rect width="800" height="450" fill="url(#bg7)" />
+
+  <!-- Shield Insignia Center -->
+  <g transform="translate(400, 185)">
+    <!-- Aura Glow -->
+    <circle r="140" fill="#eab308" fill-opacity="0.08" />
+    <circle r="110" fill="#eab308" fill-opacity="0.12" />
+
+    <!-- Outer Ethiopian Tricolor Laurel Wreath Ring -->
+    <path d="M -120,40 C -140,-40 -80,-110 0,-120 C 80,-110 140,-40 120,40 C 100,100 20,135 0,135 C -20,135 -100,100 -120,40 Z" fill="none" stroke="url(#gold-grad)" stroke-width="4" stroke-dasharray="8,6" />
+
+    <!-- Golden Shield Path -->
+    <path d="M 0,-90 L 75,-40 C 75,50 40,95 0,115 C -40,95 -75,50 -75,-40 Z" fill="#131e3a" stroke="url(#gold-grad)" stroke-width="3" />
+
+    <!-- Inner Shield Star -->
+    <polygon points="0,-35 10,-8 35,-8 15,8 22,35 0,20 -22,35 -15,8 -35,-8 -10,-8" fill="url(#gold-grad)" />
+
+    <!-- 18 Mastered Scenario Stars -->
+    <g fill="#fde047" font-size="11">
+      <circle cx="-50" cy="-55" r="3.5" />
+      <circle cx="-35" cy="-70" r="3.5" />
+      <circle cx="-15" cy="-80" r="3.5" />
+      <circle cx="15" cy="-80" r="3.5" />
+      <circle cx="35" cy="-70" r="3.5" />
+      <circle cx="50" cy="-55" r="3.5" />
+
+      <circle cx="-65" cy="-30" r="3.5" />
+      <circle cx="-65" cy="-5" r="3.5" />
+      <circle cx="-60" cy="20" r="3.5" />
+      <circle cx="-45" cy="45" r="3.5" />
+      <circle cx="-25" cy="65" r="3.5" />
+      <circle cx="0" cy="75" r="3.5" />
+
+      <circle cx="25" cy="65" r="3.5" />
+      <circle cx="45" cy="45" r="3.5" />
+      <circle cx="60" cy="20" r="3.5" />
+      <circle cx="65" cy="-5" r="3.5" />
+      <circle cx="65" cy="-30" r="3.5" />
+      <circle cx="0" cy="-5" r="4.5" fill="#ffffff" />
+    </g>
+  </g>
+
+  <!-- Banner Ribbon Bottom -->
+  <g transform="translate(400, 345)">
+    <rect x="-240" y="-22" width="480" height="44" rx="8" fill="#181404" stroke="url(#gold-grad)" stroke-width="2" />
+    <text x="0" y="6" text-anchor="middle" fill="#fde047" font-family="sans-serif" font-size="16" font-weight="bold" letter-spacing="2">🏆 ARENA GRANDMASTER — 100% MASTERY</text>
+  </g>
+
+  <!-- Subtitle Details -->
+  <text x="400" y="405" text-anchor="middle" fill="#cbd5e1" font-family="sans-serif" font-size="13">All 18 Attack, Defense, and Battle Scenarios Mastered · 1,350 Total Arena XP</text>
+  <text x="400" y="425" text-anchor="middle" fill="#94a3b8" font-family="sans-serif" font-size="11">Unlocked badge_arena_grandmaster · Ready for Advanced Cyber Hero Journey Missions</text>
+</svg>

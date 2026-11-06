@@ -1,0 +1,18 @@
+{
+  "short_name": "ABBAY CYBERGUARD",
+  "name": "ABBAY CYBERGUARD — Learn. Protect. Empower.",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "48x48 72x72 96x96 144x144 192x192 512x512"
+    }
+  ],
+  "start_url": "/#/",
+  "background_color": "#0B172A",
+  "theme_color": "#0B172A",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "description": "ABBAY CYBERGUARD — Modern, offline-first cybersecurity education and digital safety platform for Ethiopia."
+}
+

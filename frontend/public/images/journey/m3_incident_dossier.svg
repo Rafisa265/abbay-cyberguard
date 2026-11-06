@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgM3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#040a18"/>
+      <stop offset="50%" stop-color="#091632"/>
+      <stop offset="100%" stop-color="#020610"/>
+    </linearGradient>
+    <linearGradient id="blueAmberM3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="50%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#00f0ff"/>
+    </linearGradient>
+    <radialGradient id="glowM3" cx="50%" cy="45%" r="42%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.28"/>
+      <stop offset="60%" stop-color="#f59e0b" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#040a18" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="neonM3" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    <pattern id="gridM3" width="36" height="36" patternUnits="userSpaceOnUse">
+      <path d="M 36 0 L 0 0 0 36" fill="none" stroke="#38bdf8" stroke-width="0.75" stroke-opacity="0.12"/>
+    </pattern>
+  </defs>
+
+  <rect width="800" height="450" fill="url(#bgM3)"/>
+  <rect width="800" height="450" fill="url(#gridM3)"/>
+  <circle cx="400" cy="210" r="195" fill="url(#glowM3)"/>
+
+  <!-- Incident Dossier Folder -->
+  <path d="M 270 100 L 370 100 L 390 120 L 530 120 C 540 120 545 125 545 135 L 545 325 C 545 335 540 340 530 340 L 270 340 C 260 340 255 335 255 325 L 255 115 C 255 105 260 100 270 100 Z"
+        fill="#071836" stroke="url(#blueAmberM3)" stroke-width="3" filter="url(#neonM3)"/>
+
+  <!-- Inside Document Lines -->
+  <rect x="285" y="145" width="230" height="12" rx="3" fill="#38bdf8" fill-opacity="0.4"/>
+  <rect x="285" y="170" width="160" height="8" rx="2" fill="#94a3b8" fill-opacity="0.5"/>
+  <rect x="285" y="186" width="200" height="8" rx="2" fill="#94a3b8" fill-opacity="0.4"/>
+  <rect x="285" y="202" width="180" height="8" rx="2" fill="#94a3b8" fill-opacity="0.4"/>
+
+  <!-- Tamper-Proof Digital Seal -->
+  <circle cx="475" cy="265" r="32" fill="#041226" stroke="#f59e0b" stroke-width="2.5"/>
+  <circle cx="475" cy="265" r="24" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="475" y="269" font-family="'Segoe UI', Roboto, sans-serif" font-size="9" font-weight="900" fill="#fcd34d" text-anchor="middle">VERIFIED</text>
+
+  <!-- Evidence Checkbox Rows -->
+  <g transform="translate(285, 230)">
+    <rect x="0" y="0" width="14" height="14" rx="3" fill="#051f38" stroke="#10b981" stroke-width="1.5"/>
+    <path d="M 3 7 L 6 10 L 11 4" stroke="#10b981" stroke-width="2" fill="none"/>
+    <text x="22" y="11" font-family="'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" fill="#cbd5e1">INCIDENT TIMELINE</text>
+
+    <rect x="0" y="22" width="14" height="14" rx="3" fill="#051f38" stroke="#10b981" stroke-width="1.5"/>
+    <path d="M 3 29 L 6 32 L 11 26" stroke="#10b981" stroke-width="2" fill="none"/>
+    <text x="22" y="33" font-family="'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" fill="#cbd5e1">SUSPECT TELEMETRY</text>
+
+    <rect x="0" y="44" width="14" height="14" rx="3" fill="#051f38" stroke="#10b981" stroke-width="1.5"/>
+    <path d="M 3 51 L 6 54 L 11 48" stroke="#10b981" stroke-width="2" fill="none"/>
+    <text x="22" y="55" font-family="'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" fill="#cbd5e1">PREPARED DRAFT ONLY</text>
+  </g>
+
+  <!-- Status Bar -->
+  <rect x="235" y="388" width="330" height="34" rx="17" fill="#071936" stroke="#38bdf8" stroke-width="1.5"/>
+  <circle cx="257" cy="405" r="5" fill="#38bdf8"/>
+  <text x="400" y="410" font-family="'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="700" letter-spacing="2" fill="#7dd3fc" text-anchor="middle">M3 • CYBERCRIME REPORT DOSSIER</text>
+</svg>

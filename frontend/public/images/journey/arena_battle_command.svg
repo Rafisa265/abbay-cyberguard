@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg6" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#020617" />
+      <stop offset="50%" stop-color="#091428" />
+      <stop offset="100%" stop-color="#111c38" />
+    </linearGradient>
+  </defs>
+
+  <rect width="800" height="450" fill="url(#bg6)" />
+
+  <!-- Header -->
+  <rect x="40" y="24" width="410" height="34" rx="6" fill="#0f172a" stroke="#ef4444" stroke-width="1.5" />
+  <text x="55" y="46" fill="#ef4444" font-family="monospace" font-size="13" font-weight="bold" letter-spacing="1.5">CYBER ATTACK &amp; DEFENSE ARENA — COMMAND</text>
+  <text x="470" y="46" fill="#94a3b8" font-family="sans-serif" font-size="13">Attack · Defense · Battle Simulation</text>
+
+  <!-- Left Column: RED TEAM (Attack Vector) -->
+  <g transform="translate(40, 75)">
+    <rect width="225" height="345" rx="8" fill="#140b0e" stroke="#ef4444" stroke-width="1.5" />
+    <rect x="12" y="12" width="201" height="28" rx="4" fill="#ef4444" fill-opacity="0.25" />
+    <text x="24" y="31" fill="#fca5a5" font-family="sans-serif" font-size="12" font-weight="bold">🔴 RED TEAM / THREAT</text>
+
+    <text x="16" y="65" fill="#f87171" font-family="sans-serif" font-size="11" font-weight="bold">Attack Vector Analysis:</text>
+    <text x="16" y="85" fill="#cbd5e1" font-family="monospace" font-size="10">• Social Eng: Fake SMS Lottery</text>
+    <text x="16" y="105" fill="#cbd5e1" font-family="monospace" font-size="10">• Impersonation: Telebirr Caller</text>
+    <text x="16" y="125" fill="#cbd5e1" font-family="monospace" font-size="10">• Sideloading: Malicious APK</text>
+    <text x="16" y="145" fill="#cbd5e1" font-family="monospace" font-size="10">• PrivEsc: Sudo Shell Escape</text>
+    <text x="16" y="165" fill="#cbd5e1" font-family="monospace" font-size="10">• Supply Chain: Pkg Confusion</text>
+
+    <!-- Synthetic Terminal Snippet -->
+    <rect x="12" y="185" width="201" height="145" rx="6" fill="#070a12" stroke="#334155" />
+    <text x="20" y="205" fill="#94a3b8" font-family="monospace" font-size="9"># Attacker Telemetry Log</text>
+    <text x="20" y="222" fill="#ef4444" font-family="monospace" font-size="9">&gt; initiate_phish_lure()</text>
+    <text x="20" y="239" fill="#fca5a5" font-family="monospace" font-size="9">&gt; target: regional_user</text>
+    <text x="20" y="256" fill="#fca5a5" font-family="monospace" font-size="9">&gt; payload: ussd_payment</text>
+    <text x="20" y="273" fill="#fca5a5" font-family="monospace" font-size="9">&gt; status: INTERCEPTED</text>
+    <text x="20" y="300" fill="#34d399" font-family="monospace" font-size="9">🛡️ Blocked by Defensive Rule</text>
+  </g>
+
+  <!-- Center Column: ARENA COMBAT METER -->
+  <g transform="translate(285, 75)">
+    <rect width="230" height="345" rx="8" fill="#091428" stroke="#00f0ff" stroke-width="1.5" />
+    <rect x="12" y="12" width="206" height="28" rx="4" fill="#00f0ff" fill-opacity="0.2" />
+    <text x="28" y="31" fill="#38bdf8" font-family="sans-serif" font-size="12" font-weight="bold">⚡ COMBAT TACTICAL METERS</text>
+
+    <!-- Shield Health Meter -->
+    <text x="16" y="70" fill="#cbd5e1" font-family="sans-serif" font-size="11">System Shield Integrity:</text>
+    <rect x="16" y="80" width="198" height="16" rx="4" fill="#1e293b" />
+    <rect x="16" y="80" width="198" height="16" rx="4" fill="#10b981" />
+    <text x="100" y="93" fill="#ffffff" font-family="sans-serif" font-size="10" font-weight="bold">100%</text>
+
+    <!-- Threat Score -->
+    <text x="16" y="120" fill="#cbd5e1" font-family="sans-serif" font-size="11">Threat Containment Rate:</text>
+    <rect x="16" y="130" width="198" height="16" rx="4" fill="#1e293b" />
+    <rect x="16" y="130" width="180" height="16" rx="4" fill="#3b82f6" />
+    <text x="100" y="143" fill="#ffffff" font-family="sans-serif" font-size="10" font-weight="bold">92%</text>
+
+    <!-- 18 Scenario Matrix Progress -->
+    <rect x="16" y="165" width="198" height="165" rx="6" fill="#070e1c" stroke="#1e293b" />
+    <text x="28" y="188" fill="#00f0ff" font-family="sans-serif" font-size="11" font-weight="bold">18-SCENARIO CURRICULUM</text>
+    <text x="28" y="210" fill="#cbd5e1" font-family="sans-serif" font-size="10">🟢 Beginner Tier (6 Scenarios)</text>
+    <text x="28" y="228" fill="#cbd5e1" font-family="sans-serif" font-size="10">🟡 Intermediate Tier (6 Scenarios)</text>
+    <text x="28" y="246" fill="#cbd5e1" font-family="sans-serif" font-size="10">🔴 Advanced Tier (6 Scenarios)</text>
+    <text x="28" y="275" fill="#38bdf8" font-family="sans-serif" font-size="10" font-weight="bold">Total Rewards: 1,350 XP</text>
+    <text x="28" y="295" fill="#10b981" font-family="sans-serif" font-size="10" font-weight="bold">Fair Idempotency: Anti-Dup XP</text>
+  </g>
+
+  <!-- Right Column: BLUE TEAM (Defense Response) -->
+  <g transform="translate(535, 75)">
+    <rect width="225" height="345" rx="8" fill="#0b1715" stroke="#10b981" stroke-width="1.5" />
+    <rect x="12" y="12" width="201" height="28" rx="4" fill="#10b981" fill-opacity="0.25" />
+    <text x="24" y="31" fill="#6ee7b7" font-family="sans-serif" font-size="12" font-weight="bold">🔵 BLUE TEAM / DEFENSE</text>
+
+    <text x="16" y="65" fill="#34d399" font-family="sans-serif" font-size="11" font-weight="bold">Defensive Capabilities:</text>
+    <text x="16" y="85" fill="#cbd5e1" font-family="monospace" font-size="10">• Heuristic Detection: Link Form</text>
+    <text x="16" y="105" fill="#cbd5e1" font-family="monospace" font-size="10">• Identity Guard: Out-of-Band</text>
+    <text x="16" y="125" fill="#cbd5e1" font-family="monospace" font-size="10">• Host Isolation: EDR Quarantine</text>
+    <text x="16" y="145" fill="#cbd5e1" font-family="monospace" font-size="10">• Patch Switch: CVE Mitigation</text>
+    <text x="16" y="165" fill="#cbd5e1" font-family="monospace" font-size="10">• SOC Triage: 7-Point Dossier</text>
+
+    <!-- Defender Terminal Snippet -->
+    <rect x="12" y="185" width="201" height="145" rx="6" fill="#070a12" stroke="#334155" />
+    <text x="20" y="205" fill="#94a3b8" font-family="monospace" font-size="9"># Defense Command Terminal</text>
+    <text x="20" y="222" fill="#34d399" font-family="monospace" font-size="9">&gt; apply_containment_rule()</text>
+    <text x="20" y="239" fill="#a7f3d0" font-family="monospace" font-size="9">&gt; sim_card_locked: true</text>
+    <text x="20" y="256" fill="#a7f3d0" font-family="monospace" font-size="9">&gt; cve_patch_deployed: 2026-9871</text>
+    <text x="20" y="273" fill="#a7f3d0" font-family="monospace" font-size="9">&gt; badge_awarded: Grandmaster</text>
+    <text x="20" y="300" fill="#00f0ff" font-family="monospace" font-size="9">✓ XP Awarded: +100 XP</text>
+  </g>
+</svg>

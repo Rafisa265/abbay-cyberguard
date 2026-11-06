@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#050b18"/>
+      <stop offset="50%" stop-color="#0a182c"/>
+      <stop offset="100%" stop-color="#04101e"/>
+    </linearGradient>
+    <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="50%" stop-color="#06b6d4"/>
+      <stop offset="100%" stop-color="#0ea5e9"/>
+    </linearGradient>
+    <radialGradient id="centerGlow" cx="50%" cy="45%" r="40%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.35"/>
+      <stop offset="60%" stop-color="#06b6d4" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#050b18" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    <pattern id="cyberGrid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#06b6d4" stroke-width="0.75" stroke-opacity="0.12"/>
+    </pattern>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="450" fill="url(#bgGrad)"/>
+  <rect width="800" height="450" fill="url(#cyberGrid)"/>
+  <circle cx="400" cy="210" r="190" fill="url(#centerGlow)"/>
+
+  <!-- Radar circles -->
+  <circle cx="400" cy="210" r="170" fill="none" stroke="#10b981" stroke-width="1" stroke-dasharray="6 8" stroke-opacity="0.3"/>
+  <circle cx="400" cy="210" r="125" fill="none" stroke="#06b6d4" stroke-width="1.5" stroke-dasharray="14 10" stroke-opacity="0.45"/>
+  <circle cx="400" cy="210" r="75" fill="none" stroke="#10b981" stroke-width="1" stroke-opacity="0.5"/>
+
+  <!-- Crosshairs -->
+  <line x1="180" y1="210" x2="620" y2="210" stroke="#06b6d4" stroke-width="1" stroke-opacity="0.25" stroke-dasharray="4 6"/>
+  <line x1="400" y1="30" x2="400" y2="390" stroke="#06b6d4" stroke-width="1" stroke-opacity="0.25" stroke-dasharray="4 6"/>
+
+  <!-- Outer Cyber Crest Shield -->
+  <path d="M 400 90 L 510 140 L 510 245 C 510 315 455 355 400 375 C 345 355 290 315 290 245 L 290 140 Z"
+        fill="#08182b" stroke="url(#emeraldGrad)" stroke-width="4" filter="url(#neonGlow)"/>
+
+  <!-- Inner Shield Core -->
+  <path d="M 400 115 L 485 155 L 485 240 C 485 295 440 330 400 348 C 360 330 315 295 315 240 L 315 155 Z"
+        fill="#041220" stroke="#10b981" stroke-width="1.5" stroke-opacity="0.6"/>
+
+  <!-- Beginner Emblem: Eye of Detection / Scout Radar Scan -->
+  <path d="M 340 210 Q 400 160 460 210 Q 400 260 340 210 Z" fill="none" stroke="#10b981" stroke-width="3" filter="url(#neonGlow)"/>
+  <circle cx="400" cy="210" r="22" fill="#06b6d4" fill-opacity="0.2" stroke="#10b981" stroke-width="3"/>
+  <circle cx="400" cy="210" r="10" fill="#34d399"/>
+
+  <!-- Tech Corner Brackets -->
+  <path d="M 30 30 L 70 30 M 30 30 L 30 70" stroke="#10b981" stroke-width="3" fill="none"/>
+  <path d="M 770 30 L 730 30 M 770 30 L 770 70" stroke="#10b981" stroke-width="3" fill="none"/>
+  <path d="M 30 420 L 70 420 M 30 420 L 30 380" stroke="#10b981" stroke-width="3" fill="none"/>
+  <path d="M 770 420 L 730 420 M 770 420 L 770 380" stroke="#10b981" stroke-width="3" fill="none"/>
+
+  <!-- Status Bar / Label Ribbon -->
+  <rect x="260" y="390" width="280" height="34" rx="17" fill="#071b2d" stroke="#10b981" stroke-width="1.5"/>
+  <circle cx="282" cy="407" r="5" fill="#10b981"/>
+  <text x="400" y="412" font-family="'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700" letter-spacing="3" fill="#34d399" text-anchor="middle">TIER 1 • BEGINNER SENTINEL</text>
+</svg>

@@ -1,0 +1,20 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="shieldBg" x1="6" y1="4" x2="42" y2="44" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#0B172A" />
+      <stop offset="50%" stopColor="#14243A" />
+      <stop offset="100%" stopColor="#08101E" />
+    </linearGradient>
+    <linearGradient id="cyanRiver" x1="12" y1="10" x2="36" y2="38" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#22D3EE" />
+      <stop offset="45%" stopColor="#06B6D4" />
+      <stop offset="100%" stopColor="#0284C7" />
+    </linearGradient>
+  </defs>
+  <path d="M24 3L8 9V22C8 32.5 14.8 41.8 24 45C33.2 41.8 40 32.5 40 22V9L24 3Z" fill="url(#shieldBg)" stroke="#22D3EE" stroke-width="2.5" stroke-linejoin="round" />
+  <path d="M17 15C21 15 20 22 25 22C29 22 29 17 33 17" stroke="url(#cyanRiver)" stroke-width="2.8" stroke-linecap="round" />
+  <path d="M15 22C20 22 19 29 25 29C30 29 29 24 34 24" stroke="url(#cyanRiver)" stroke-width="3" stroke-linecap="round" />
+  <path d="M18 30C22 30 21 35 24 36C27 35 27 31 31 31" stroke="#38BDF8" stroke-width="2.5" stroke-linecap="round" />
+  <circle cx="24.5" cy="22" r="2.8" fill="#F8FAFC" />
+</svg>
+

@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgP05" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#04091a"/>
+      <stop offset="50%" stop-color="#0c1736"/>
+      <stop offset="100%" stop-color="#020714"/>
+    </linearGradient>
+    <linearGradient id="purpleAmberP05" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a855f7"/>
+      <stop offset="50%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#00f0ff"/>
+    </linearGradient>
+    <radialGradient id="glowP05" cx="50%" cy="45%" r="42%">
+      <stop offset="0%" stop-color="#a855f7" stop-opacity="0.28"/>
+      <stop offset="50%" stop-color="#00f0ff" stop-opacity="0.14"/>
+      <stop offset="100%" stop-color="#04091a" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="neonP05" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    <pattern id="gridP05" width="36" height="36" patternUnits="userSpaceOnUse">
+      <path d="M 36 0 L 0 0 0 36" fill="none" stroke="#00f0ff" stroke-width="0.75" stroke-opacity="0.12"/>
+    </pattern>
+  </defs>
+
+  <rect width="800" height="450" fill="url(#bgP05)"/>
+  <rect width="800" height="450" fill="url(#gridP05)"/>
+  <circle cx="400" cy="210" r="195" fill="url(#glowP05)"/>
+
+  <!-- Database Cylinders (Breached Database Metaphor) -->
+  <g transform="translate(180, 160)" opacity="0.7">
+    <ellipse cx="60" cy="30" rx="45" ry="16" fill="#131e42" stroke="#a855f7" stroke-width="2"/>
+    <path d="M 15 30 L 15 80 A 45 16 0 0 0 105 80 L 105 30" fill="#0d1430" stroke="#a855f7" stroke-width="2"/>
+    <path d="M 15 80 L 15 130 A 45 16 0 0 0 105 130 L 105 80" fill="#080e24" stroke="#a855f7" stroke-width="2"/>
+  </g>
+
+  <!-- Secondary Harvesting Form Hologram -->
+  <rect x="290" y="80" width="300" height="260" rx="14" fill="#091736" stroke="url(#purpleAmberP05)" stroke-width="3" filter="url(#neonP05)"/>
+  <rect x="310" y="105" width="160" height="12" rx="3" fill="#f59e0b" fill-opacity="0.6"/>
+  <text x="310" y="132" font-family="'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="800" fill="#fda4af">ENTER NATIONAL ID TO CHECK LEAK:</text>
+  <rect x="310" y="142" width="260" height="28" rx="6" fill="#030c22" stroke="#f43f5e" stroke-width="1.5"/>
+  <text x="325" y="161" font-family="'Segoe UI', Roboto, sans-serif" font-size="12" fill="#fda4af">ID-ETH-99214-XX</text>
+
+  <text x="310" y="194" font-family="'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="800" fill="#fda4af">ENTER MOTHER'S MAIDEN NAME:</text>
+  <rect x="310" y="204" width="260" height="28" rx="6" fill="#030c22" stroke="#f43f5e" stroke-width="1.5"/>
+  <text x="325" y="223" font-family="'Segoe UI', Roboto, sans-serif" font-size="12" fill="#fda4af">••••••••</text>
+
+  <!-- Red Trap Flag -->
+  <rect x="310" y="250" width="260" height="32" rx="6" fill="#1f1028" stroke="#f43f5e" stroke-width="2"/>
+  <text x="440" y="271" font-family="'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="900" fill="#fda4af" text-anchor="middle">⚠️ SECONDARY HARVESTING TRAP</text>
+
+  <!-- M3 Incident Report Guard Badge -->
+  <g transform="translate(440, 310)">
+    <circle cx="0" cy="0" r="24" fill="#041830" stroke="#10b981" stroke-width="2.5"/>
+    <text x="0" y="5" font-family="'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="900" fill="#10b981" text-anchor="middle">M3</text>
+  </g>
+
+  <!-- Status Bar -->
+  <rect x="235" y="388" width="330" height="34" rx="17" fill="#081b3a" stroke="#00f0ff" stroke-width="1.5"/>
+  <circle cx="257" cy="405" r="5" fill="#00f0ff"/>
+  <text x="400" y="410" font-family="'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="700" letter-spacing="2" fill="#38bdf8" text-anchor="middle">INCIDENT RESPONSE &amp; DATA SHIELD</text>
+</svg>

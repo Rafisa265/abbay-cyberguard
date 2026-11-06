@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" aria-label="INSA Ethio-CERT National Cybersecurity Logo">
+  <defs>
+    <linearGradient id="insa-shield" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F2027"/>
+      <stop offset="50%" stop-color="#203A43"/>
+      <stop offset="100%" stop-color="#2C5364"/>
+    </linearGradient>
+    <linearGradient id="ethiopia-tri" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#009A44"/>
+      <stop offset="50%" stop-color="#FEDD00"/>
+      <stop offset="100%" stop-color="#EF3340"/>
+    </linearGradient>
+  </defs>
+  <!-- Cyber Defense Shield -->
+  <path d="M24 3L6 10v14c0 12.5 7.7 20.3 18 23 10.3-2.7 18-10.5 18-23V10L24 3z" fill="url(#insa-shield)" stroke="#00E5FF" stroke-width="2"/>
+  <!-- Ethiopian Tricolor Arc Accent -->
+  <path d="M12 14c4-2 8-3 12-3s8 1 12 3" fill="none" stroke="url(#ethiopia-tri)" stroke-width="2" stroke-linecap="round"/>
+  <!-- Central Cyber Lock & Keyhole -->
+  <rect x="17" y="24" width="14" height="12" rx="3" fill="#00E5FF"/>
+  <path d="M20 24v-4c0-2.2 1.8-4 4-4s4 1.8 4 4v4" fill="none" stroke="#00E5FF" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="24" cy="29" r="1.5" fill="#0F2027"/>
+  <path d="M24 30.5v3" stroke="#0F2027" stroke-width="1.5" stroke-linecap="round"/>
+</svg>
