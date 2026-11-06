@@ -19,7 +19,10 @@ import logging
 import re
 import threading
 from pathlib import Path
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None  # type: ignore
 
 from . import config
 
@@ -458,6 +461,9 @@ def synthesize_speech_to_wav(text: str, language: str) -> tuple[bytes | None, st
 
     if not is_tts_model_available(norm_lang):
         return None, "TTS_MODEL_NOT_INSTALLED"
+
+    if np is None:
+        return None, "NUMPY_NOT_INSTALLED"
 
     # Normalize text for speech synthesis
     if norm_lang == "am":
