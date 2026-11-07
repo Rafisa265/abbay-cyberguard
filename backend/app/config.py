@@ -47,19 +47,44 @@ ALLOWED_HOSTS = {
     for h in os.getenv("CYBERSHIELD_ALLOWED_HOSTS", "").split(",")
     if h.strip()
 }
-_extra_origins = {
-    orig.strip().rstrip("/")
-    for orig in os.getenv("CYBERSHIELD_ALLOWED_ORIGINS", "").split(",")
-    if orig.strip()
-}
-ALLOWED_ORIGINS = {
-    f"http://127.0.0.1:{PORT}", f"http://localhost:{PORT}",
-    f"http://[::1]:{PORT}",
-    "http://127.0.0.1:5173", "http://localhost:5173",  # Vite dev server
-    "http://127.0.0.1:5174", "http://localhost:5174",
-    "http://127.0.0.1:5175", "http://localhost:5175",
-    *_extra_origins,
-}
+
+def build_allowed_origins(environment: str, port: int, extra_origins: str) -> set[str]:
+    is_production = environment.lower() == "production"
+    configured = {origin.strip().rstrip("/") for origin in extra_origins.split(",") if origin.strip()}
+    if any("*" in origin for origin in configured):
+        raise ValueError("Wildcard origins are not allowed when credentials are enabled.")
+
+    for origin in configured:
+        parsed = urlsplit(origin)
+        if (
+            parsed.scheme not in ("http", "https")
+            or not parsed.netloc
+            or parsed.path
+            or parsed.query
+            or parsed.fragment
+            or parsed.username
+            or parsed.password
+        ):
+            raise ValueError("Allowed origins must be exact http(s) origins without paths.")
+
+    allowed = {"https://abbay-cyberguard.pages.dev", *configured}
+    if not is_production:
+        allowed.update({
+            f"http://127.0.0.1:{port}",
+            f"http://localhost:{port}",
+            f"http://[::1]:{port}",
+            "http://127.0.0.1:5173", "http://localhost:5173",
+            "http://127.0.0.1:5174", "http://localhost:5174",
+            "http://127.0.0.1:5175", "http://localhost:5175",
+        })
+    return allowed
+
+
+ALLOWED_ORIGINS = build_allowed_origins(
+    ENVIRONMENT,
+    PORT,
+    os.getenv("CYBERSHIELD_ALLOWED_ORIGINS", ""),
+)
 MAX_BODY_BYTES = 4096
 MAX_VOICE_BODY_BYTES = 2097152  # 2 MiB strict limit for voice payload
 

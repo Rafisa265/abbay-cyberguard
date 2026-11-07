@@ -76,7 +76,9 @@ ABBAY CYBERGUARD provides five dedicated practical security tools and laboratori
 ### M5: Academy & Certifications
 - **Structured Curriculum**: Progressive cybersecurity courses covering fundamental hygiene, network safety, operational security, and social engineering defense.
 - **Interactive Quizzes**: Real-time evaluation with contextual explanations.
-- **Completion Records**: A passed level can produce a downloadable PNG/printable educational completion record. Its identifier and local verification code are not checked by a server and do not establish accreditation or professional qualification.
+- **Account-Backed Certificates (Opt-In)**: Server-generated quiz attempts and assessment results are saved only after explicit consent. The server grades sequential levels and issues milestones for levels 1, 3, and 6; lesson visits are not proof that course content was read.
+- **PDF and Public Verification**: Issued certificates can be downloaded as landscape PDF files and checked through a public verification page. Public results do not reveal the learner's name or account details. Certificates record server-verified assessment milestones, not professional licenses or accredited degrees.
+- **Offline Progress**: The curriculum remains usable without signing in; server-issued certificates require an account, network access, and the optional progress-sync consent.
 
 ---
 
@@ -95,8 +97,9 @@ A real-time, browser-based tactical 3D cyber combat simulation built with **Thre
 - **Minimap & Radar**: Real-time spatial tracking of friendly and hostile forces across the digital metropolis.
 
 ### Device Security Auditor
-- **Hardware & OS Hardening Guide**: Step-by-step posture checks for desktop workstations and mobile smartphones.
-- **Audit Checklists**: Screen lock timeout enforcement, disk encryption verification, biometric authentication setup, and application permission audits.
+- **Windows Host Inspection**: Reads local Windows security configuration only through the explicitly started local service and after user consent; it does not inspect the hosted backend machine.
+- **Android Browser-Only Check**: Reports HTTPS, secure-context, and limited browser information. It does not inspect Android settings, installed apps, Play Protect, or connected devices, and does not call the backend.
+- **Audit Guidance**: Screen lock, disk encryption, biometrics, and application permissions are educational checklists, not remotely performed audits.
 
 ---
 
@@ -113,7 +116,7 @@ A real-time, browser-based tactical 3D cyber combat simulation built with **Thre
   - **Amharic (`am`)**: Offline fine-tuned Whisper model (`b1n1yam/whisper-small-am`) running in an isolated worker subprocess.
 - **Text-to-Speech (TTS)**:
   - **Amharic (`am`)**: Offline neural voice synthesis via Meta MMS (`facebook/mms-tts-amh`).
-  - **Afaan Oromoo (`om`)**: Offline neural voice synthesis via Meta MMS (`facebook/mms-tts-gaz`).
+  - **Afaan Oromoo (`om`)**: Offline neural voice synthesis via Meta MMS (`facebook/mms-tts-orm`), when the optional local model files are installed.
   - **English (`en`)**: Zero-download browser-native Speech Synthesis API.
 - **Privacy & Concurrency**:
   - Single-worker concurrency gate (`VoiceAdmissionController`) prevents CPU exhaustion.
@@ -128,9 +131,9 @@ ABBAY CYBERGUARD is localized from the ground up for the Ethiopian multilingual 
 
 | Language | Code | Script | Translation Status | Voice Support |
 |---|---|---|---|---|
-| **English** | `en` | Latin | Dictionary key parity tested | Offline STT requires the optional Whisper binary/model; browser-native TTS |
-| **Afaan Oromoo** | `om` | Qubee Latin | Dictionary key parity tested | Offline TTS requires optional model files; offline STT is unsupported |
-| **Amharic (አማርኛ)** | `am` | Ge'ez / Fidel | Dictionary key parity tested | Offline STT/TTS require optional model files |
+| **English** | `en` | Latin | Dictionary key parity tested | Offline STT requires the optional Whisper binary/model; TTS uses only a browser-verified local voice |
+| **Afaan Oromoo** | `om` | Qubee Latin | Dictionary key parity tested | Offline STT uses the optional multilingual Whisper runtime/model; offline TTS requires optional model files. Recognition quality needs fluent-speaker validation. |
+| **Amharic (አማርኛ)** | `am` | Ge'ez / Fidel | Dictionary key parity tested | Offline STT/TTS require optional model files; online browser TTS requires separate consent |
 
 Automated frontend tests check translation dictionary key parity. They do not certify translation quality. Custom typography supports Ge'ez characters and Latin diacritics.
 
@@ -353,7 +356,6 @@ Backend configuration is read from process environment variables and, for local 
 | `CYBERSHIELD_ASSISTANT_ONLINE_ENABLED` | `false` | Server-side Gemini kill-switch; must be true, in addition to consent, to allow external requests. |
 | `CYBERSHIELD_ASSISTANT_PROVIDER` | `none` | `none`, `gemini`, or local test-only `mock`. |
 | `CYBERSHIELD_ASSISTANT_API_KEY` | empty | Optional Gemini API key; never put it in frontend build variables. |
-| `VITE_API_BASE_URL` | empty | Frontend build-time API origin; set this in Cloudflare Pages for a separate backend host. |
 
 ---
 
@@ -365,12 +367,13 @@ Due to GitHub repository size limits and bandwidth considerations, binary AI mod
 
 The web application starts without model binaries:
 - All web modules (M1, M2, M3, M4, M5), the Cyber Hero Journey, Account management, and the Digital City 3D simulation operate without any missing dependencies.
-- The Conversational AI Assistant works in text mode. Browser-native English speech synthesis depends on browser support.
-- Offline STT/TTS endpoints report unavailable model/runtime states when their optional files or packages are absent. Afaan Oromoo offline STT is not supported.
+- The Conversational AI Assistant works in text mode. English browser speech is used only when the browser identifies a local voice; an unknown or cloud-backed default is not selected.
+- Microphone audio and offline speech synthesis requests go only to the local `127.0.0.1:8000` service. They are reported unavailable when the relevant local runtime or model is absent; the hosted Render service is not used for microphone audio.
+- Amharic online browser speech is off by default and requires a separate confirmation; the text being spoken may be sent to the browser's cloud speech provider.
 
 ### Installing Offline Voice Models (Optional)
 
-Optional local speech support requires the listed models, the matching runtime dependencies, and a compatible host. English and Amharic STT and Amharic/Afaan Oromoo TTS are implemented; Afaan Oromoo offline STT is not supported. These models are not installed by the production requirements or included in the repository.
+Optional local speech support requires the listed models, the matching runtime dependencies, and a compatible host. English and Amharic STT use offline models; Afaan Oromoo STT uses multilingual Whisper with an Oromo prompt and its linguistic accuracy is not guaranteed. Amharic and Afaan Oromoo TTS use offline models. English browser TTS is available only through a voice the browser marks as local. These models are not installed by the production requirements.
 
 ```
 models/voice/
@@ -428,8 +431,8 @@ This repository is configured for a separate static frontend and API. No service
 - Repository root directory: `frontend`
 - Build command: `npm ci && npm run build`
 - Build output directory: `dist`
-- Set build environment variable `VITE_API_BASE_URL=https://api.example.com` (replace with the exact API hostname; no secret belongs in this variable).
-- Keep `public/_redirects` as the SPA fallback. Cloudflare Pages `_redirects` does not proxy to an external domain; API calls use `VITE_API_BASE_URL`.
+- The `functions/` directory provides a same-origin `/api/*` Pages Function that proxies only to the fixed Render API origin. Do not add a catch-all rewrite to `public/_redirects`: Pages provides its SPA fallback automatically when there is no top-level `404.html`, while Functions handle matching API routes.
+- No frontend API-origin variable is required. The same-origin proxy keeps credentialed auth requests on the Pages site so the existing `HttpOnly; Secure; SameSite=Lax` session cookie remains first-party.
 
 ### 2. Render backend
 
@@ -437,7 +440,7 @@ This repository is configured for a separate static frontend and API. No service
 - Build command: `pip install -r requirements.txt`
 - Start command: `python run.py`
 - Set `CYBERSHIELD_ENV=production`, `CYBERSHIELD_BIND=0.0.0.0`, and `CYBERSHIELD_ALLOW_NON_LOOPBACK=true`. `run.py` validates non-loopback binding and uses Render's injected `PORT` unless `CYBERSHIELD_PORT` is explicitly set.
-- Set `CYBERSHIELD_ALLOWED_HOSTS` to the exact API custom hostname and the Render service hostname used for health checks. Set `CYBERSHIELD_ALLOWED_ORIGINS` to the exact Pages custom origin (for example `https://app.example.com`); do not use `*`.
+- Set `CYBERSHIELD_ALLOWED_HOSTS` to the exact API custom hostname and the Render service hostname used for health checks. The deployed Pages origin is explicitly allowlisted in code; add any custom Pages domain to `CYBERSHIELD_ALLOWED_ORIGINS` and never use `*`.
 - Set the Render HTTP health-check path to `/api/v1/ready`. `/api/v1/health` is liveness-only; readiness also checks the database.
 
 ### 3. Neon PostgreSQL and migrations
@@ -446,6 +449,7 @@ This repository is configured for a separate static frontend and API. No service
 - Set Render `DATABASE_URL` to that URL with the driver scheme `postgresql+psycopg://` and retain Neon TLS parameters such as `sslmode=require`. Plain `postgresql://` URLs are normalized by the app, but production still requires an explicit TLS mode.
 - Do not set `TEST_DATABASE_URL` on the production service. Tests can drop/recreate tables in their isolated database.
 - Before starting the production service, run `alembic upgrade head` from `backend/` against the production URL from a trusted migration environment. Production startup requires the migrated schema and does not auto-create tables.
+- The server-verified M5 certificate workflow requires migration `003_academy_certificates`; do not enable certificate issuance until that migration is applied.
 - Neon Free currently offers persistent database storage with scale-to-zero and usage limits; review current terms and quotas before launch. The Render free filesystem is not persistent, so do not store user data or models there.
 
 ### 4. Production environment checklist
@@ -459,15 +463,16 @@ This repository is configured for a separate static frontend and API. No service
 
 ### 5. Cookie/site requirement and smoke tests
 
-The app's session cookie is `SameSite=Lax`. The default `*.pages.dev` and `*.onrender.com` hosts are different sites, so browser account sessions may not work reliably across them. Use custom frontend and API hostnames under the same registrable domain (for example `app.example.com` and `api.example.com`) with HTTPS, or implement a same-origin Pages Function proxy before enabling account features. Configure matching CORS origins and allowed API hosts.
+The app's session cookie is `SameSite=Lax`. The Pages Function proxies `/api/*` same-origin to the fixed Render backend, forwarding the browser origin for the backend's exact origin checks and preserving `Set-Cookie`. It rejects cross-origin/origin-less mutations and does not act as an arbitrary proxy. Custom Pages domains must be added explicitly to the backend origin allowlist; the Function enforces that requests remain same-origin.
 
 After deployment, verify:
-1. `GET https://api.example.com/api/v1/health` and `/api/v1/ready` return `200`.
-2. The Pages site loads, routes render, and its Network panel shows API requests going to the configured API origin rather than returning `index.html`.
-3. Browser preflight and credentialed requests succeed only for the configured Pages origin.
-4. Register/login set an `HttpOnly`, `Secure`, `SameSite=Lax` cookie; `/api/v1/auth/me` works from the Pages UI, and logout revokes the session.
-5. Account sync stays disabled until consent; M1 works with no CTI key, and CTI only runs after the user enables it.
-6. M2 checks/generates locally; M3 exports only on request; M4 remains simulated; M5 only offers completion records after passing; test the games and voice features on actual supported devices/models.
+1. `GET https://abbay-cyberguard-api.onrender.com/api/v1/health` and `/api/v1/ready` return `200`.
+2. The Pages site loads and `/api/v1/m4/scenarios` returns JSON through the Pages Function, not `index.html`.
+3. Register/login set an `HttpOnly`, `Secure`, `SameSite=Lax` first-party cookie; `/api/v1/auth/me` works through Pages, and logout revokes the session.
+4. Account sync stays disabled until consent; M1 works with no CTI key, and CTI only runs after the user enables it.
+5. M2 checks/generates locally; M3 exports only on request; M4 remains simulated; M5 only offers completion records after passing.
+6. On Windows, install/run the local service and grant the browser's local-network permission if prompted before consenting to a scan. Android web mode checks only HTTPS, secure context, and limited browser details; it cannot inspect Android OS security. Deeper Android checks require a separately approved native app/helper.
+7. Voice STT and non-English TTS use only the local service. English browser-native TTS remains available. Check the installed local models and actual devices; the hosted Render instance does not provide these models.
 
 ---
 

@@ -20,6 +20,8 @@ const DEFAULT_STATE = {
   practicalChallenges: {}, // { [challengeId]: { completed: true, score, completed_at } }
   quizAnswers: {}, // { [questionId]: chosenOptionIndex }
   adaptiveOptOut: false,
+  certificateSyncConsent: false,
+  certificateSyncConsentUserId: null,
   earnedCertificates: [], // [ { id, certificateId, levelNum, title, recipientName, issueDate, verificationCode, score, stars } ]
   lastUpdated: null,
 }
@@ -93,6 +95,25 @@ export function saveAcademyProgress(state) {
   }
 
   return updated
+}
+
+export function hasCertificateSyncConsent(userId) {
+  if (userId === null || userId === undefined) return false
+  const current = loadAcademyProgress()
+  return current.certificateSyncConsent === true &&
+    String(current.certificateSyncConsentUserId) === String(userId)
+}
+
+export function saveCertificateSyncConsent(enabled, userId) {
+  if (enabled && (userId === null || userId === undefined)) {
+    throw new Error('An authenticated account is required to enable certificate sync.')
+  }
+  const current = loadAcademyProgress()
+  return saveAcademyProgress({
+    ...current,
+    certificateSyncConsent: Boolean(enabled),
+    certificateSyncConsentUserId: enabled ? String(userId) : null,
+  })
 }
 
 /**

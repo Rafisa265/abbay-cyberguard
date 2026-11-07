@@ -24,6 +24,7 @@ from . import routes_ml
 from . import routes_assistant
 from . import routes_voice
 from . import routes_device_security
+from . import routes_academy
 from . import tts_service
 
 log = logging.getLogger("cybershield")  # logs event type + outcome only (SR-07)
@@ -252,6 +253,9 @@ app.include_router(routes_voice.router)
 
 # Include Local Device Security Check routes
 app.include_router(routes_device_security.router)
+
+# Include authenticated Academy progress, certificate, and public verification routes
+app.include_router(routes_academy.router)
 
 _cache_dir = config.AI_ARTWORK_CACHE_DIR
 _cache_dir.mkdir(parents=True, exist_ok=True)

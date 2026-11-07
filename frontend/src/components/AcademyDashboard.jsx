@@ -1,5 +1,6 @@
 export default function AcademyDashboard({
   academyProgress,
+  certificateStatus,
   mastery,
   recommendations,
   revisionQueue,
@@ -14,7 +15,8 @@ export default function AcademyDashboard({
     (l) => l.passed && (l.score === 100 || l.percentage === 100 || l.stars === 3)
   ).length
   const challengesCount = Object.keys(academyProgress.practicalChallenges || {}).length
-  const certsCount = (academyProgress.earnedCertificates || []).length
+  const certificates = certificateStatus?.certificates || []
+  const certsCount = certificates.length
 
   // Calculate overall completion: 5 lessons + 6 levels + 4 challenges = 15 total units
   const totalUnits = 15
@@ -92,7 +94,7 @@ export default function AcademyDashboard({
                 {certsCount} Certificates
               </strong>
               <span style={{ fontSize: '0.78rem', color: '#CBD5E1' }}>
-                {certsCount > 0 ? 'Verified & Downloadable' : 'Earn by mastering levels'}
+                {certsCount > 0 ? 'Server-issued and verifiable' : 'Complete requirements to earn'}
               </span>
             </div>
           </div>
@@ -256,6 +258,35 @@ export default function AcademyDashboard({
         </div>
       </div>
 
+      <section className="card m4-card academy-my-certificates" aria-labelledby="academy-certificate-list-title">
+        <h3 id="academy-certificate-list-title">{t('academy.cert.my_certificates') || 'My Certificates'}</h3>
+        {certificates.length ? (
+          <div className="academy-my-certificates-list">
+            {certificates.map((certificate) => (
+              <div className="academy-my-certificate-row" key={certificate.certificate_id}>
+                <div>
+                  <strong>{certificate.course_title}</strong>
+                  <span>{certificate.certificate_id}</span>
+                  <small>{new Date(certificate.issued_at).toLocaleDateString()}</small>
+                </div>
+                <button
+                  type="button"
+                  className="btn ghost small"
+                  onClick={() => onOpenCertificate({
+                    levelNum: certificate.level_num,
+                    title: certificate.course_title,
+                  })}
+                >
+                  {t('academy.cert.view_btn') || 'View certificate'}
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p>{t('academy.cert.none_issued') || 'No server-issued certificates yet. Sign in and complete the required lessons and verified levels to earn one.'}</p>
+        )}
+      </section>
+
       {/* Offline Library & Storage Status Notice */}
       <div style={{ background: '#0B1220', border: '1px solid #1E293B', borderRadius: '8px', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -276,4 +307,3 @@ export default function AcademyDashboard({
     </div>
   )
 }
-

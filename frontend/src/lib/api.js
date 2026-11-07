@@ -1,26 +1,21 @@
 // Safe HTTP client for local CyberShield authentication and progress endpoints
 // Uses HttpOnly session cookies (credentials: 'include') and avoids any persistent client storage
 
-const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL)
-  ? String(import.meta.env.VITE_API_BASE_URL).replace(/\/+$/, '')
-  : ''
+const LOCAL_API_BASE = 'http://127.0.0.1:8000'
 
 const doFetch = (url, options = {}) => {
   if (typeof window === 'undefined' || !window['f' + 'etch']) {
     return Promise.reject(new Error('Fetch unavailable'))
   }
 
-  const requestUrl = (API_BASE && typeof url === 'string' && url.startsWith('/'))
-    ? `${API_BASE}${url}`
-    : url
-
   const timeoutMs = options.timeout
   let controller = null
   let timerId = null
+  let externalAbortHandler = null
 
   const fetchOptions = {
     ...options,
-    credentials: 'include',
+    credentials: options.credentials || 'include',
     headers: {
       'Content-Type': 'application/json',
       ...(options.headers || {}),
@@ -29,19 +24,24 @@ const doFetch = (url, options = {}) => {
 
   delete fetchOptions.timeout
 
-  if (timeoutMs && typeof AbortController !== 'undefined') {
+  if ((timeoutMs || fetchOptions.signal) && typeof AbortController !== 'undefined') {
     controller = new AbortController()
-    timerId = setTimeout(() => {
-      controller.abort()
-    }, timeoutMs)
-    if (!fetchOptions.signal) {
-      fetchOptions.signal = controller.signal
+    if (fetchOptions.signal) {
+      if (fetchOptions.signal.aborted) {
+        controller.abort()
+      } else {
+        externalAbortHandler = () => controller.abort()
+        fetchOptions.signal.addEventListener('abort', externalAbortHandler, { once: true })
+      }
     }
+    if (timeoutMs) timerId = setTimeout(() => controller.abort(), timeoutMs)
+    fetchOptions.signal = controller.signal
   }
 
   // Invoke via window to preserve execution context in browsers
-  return window['f' + 'etch'](requestUrl, fetchOptions)
+  return window['f' + 'etch'](url, fetchOptions)
     .catch((err) => {
+      if (options.signal?.aborted) throw err
       if (err && (err.name === 'AbortError' || err.code === 20)) {
         const timeoutErr = new Error('REQUEST_TIMEOUT')
         timeoutErr.code = 'REQUEST_TIMEOUT'
@@ -54,14 +54,21 @@ const doFetch = (url, options = {}) => {
       if (timerId) {
         clearTimeout(timerId)
       }
+      if (externalAbortHandler) {
+        options.signal.removeEventListener('abort', externalAbortHandler)
+      }
     })
 }
 
 export async function getMe() {
   try {
-    const res = await doFetch('/api/v1/auth/me', { method: 'GET', timeout: 8000 })
+    const res = await doFetch('/api/v1/auth/me', { method: 'GET', timeout: 30000 })
     if (res.status === 401) return null
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const contentType = res.headers ? res.headers.get('content-type') : ''
+    if (contentType && contentType.includes('text/html')) {
+      return null
+    }
     return await res.json().catch(() => null)
   } catch {
     return null
@@ -71,7 +78,7 @@ export async function getMe() {
 export async function registerUser({ displayName, email, password, confirmPassword }) {
   const res = await doFetch('/api/v1/auth/register', {
     method: 'POST',
-    timeout: 10000,
+    timeout: 60000,
     body: JSON.stringify({
       display_name: displayName,
       email,
@@ -79,11 +86,24 @@ export async function registerUser({ displayName, email, password, confirmPasswo
       confirm_password: confirmPassword,
     }),
   })
+  const contentType = res.headers ? res.headers.get('content-type') : ''
+  if (contentType && contentType.includes('text/html')) {
+    const err = new Error('INVALID_API_RESPONSE')
+    err.code = 'INVALID_API_RESPONSE'
+    err.status = 502
+    throw err
+  }
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
     const err = new Error(data?.error?.code || 'REGISTRATION_FAILED')
     err.code = data?.error?.code
     err.status = res.status
+    throw err
+  }
+  if (!data?.user) {
+    const err = new Error('INVALID_API_RESPONSE')
+    err.code = 'INVALID_API_RESPONSE'
+    err.status = 502
     throw err
   }
   return data
@@ -92,14 +112,27 @@ export async function registerUser({ displayName, email, password, confirmPasswo
 export async function loginUser({ email, password }) {
   const res = await doFetch('/api/v1/auth/login', {
     method: 'POST',
-    timeout: 10000,
+    timeout: 60000,
     body: JSON.stringify({ email, password }),
   })
+  const contentType = res.headers ? res.headers.get('content-type') : ''
+  if (contentType && contentType.includes('text/html')) {
+    const err = new Error('INVALID_API_RESPONSE')
+    err.code = 'INVALID_API_RESPONSE'
+    err.status = 502
+    throw err
+  }
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
     const err = new Error(data?.error?.code || 'LOGIN_FAILED')
     err.code = data?.error?.code
     err.status = res.status
+    throw err
+  }
+  if (!data?.user) {
+    const err = new Error('INVALID_API_RESPONSE')
+    err.code = 'INVALID_API_RESPONSE'
+    err.status = 502
     throw err
   }
   return data
@@ -109,7 +142,7 @@ export async function logoutUser() {
   try {
     const res = await doFetch('/api/v1/auth/logout', {
       method: 'POST',
-      timeout: 8000,
+      timeout: 15000,
       body: JSON.stringify({}),
     })
     return res.ok
@@ -118,16 +151,88 @@ export async function logoutUser() {
   }
 }
 
+async function academyRequest(path, { method = 'GET', body, signal } = {}) {
+  const res = await doFetch(path, {
+    method,
+    timeout: 30000,
+    body: body === undefined ? undefined : JSON.stringify(body),
+    signal,
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data?.error?.code || `HTTP ${res.status}`)
+    err.code = data?.error?.code || 'ACADEMY_REQUEST_FAILED'
+    err.status = res.status
+    err.details = data?.error || {}
+    throw err
+  }
+  return data
+}
+
+export async function getAcademyCertificateStatus({ signal } = {}) {
+  return academyRequest('/api/v1/academy/certificates', { signal })
+}
+
+export async function recordAcademyLessonSection({ topic, section, signal }) {
+  return academyRequest('/api/v1/academy/lessons/section', {
+    method: 'POST',
+    body: { topic, section },
+    signal,
+  })
+}
+
+export async function startAcademyLevelAttempt({ levelNum, signal }) {
+  return academyRequest('/api/v1/academy/levels/attempts', {
+    method: 'POST',
+    body: { level_num: levelNum },
+    signal,
+  })
+}
+
+export async function submitAcademyLevelAttempt({ attemptId, answers, signal }) {
+  return academyRequest(
+    `/api/v1/academy/levels/attempts/${encodeURIComponent(attemptId)}/submit`,
+    {
+      method: 'POST',
+      body: { answers },
+      signal,
+    },
+  )
+}
+
+export async function issueAcademyCertificate({ levelNum, recipientName, language = 'en', signal }) {
+  return academyRequest('/api/v1/academy/certificates', {
+    method: 'POST',
+    body: { level_num: levelNum, recipient_name: recipientName, language },
+    signal,
+  })
+}
+
+export async function getAcademyCertificate(certificateId, { signal } = {}) {
+  return academyRequest(`/api/v1/academy/certificates/${encodeURIComponent(certificateId)}`, { signal })
+}
+
+export async function verifyPublicAcademyCertificate(certificateId, { signal } = {}) {
+  return academyRequest(`/api/v1/academy/certificates/verify/${encodeURIComponent(certificateId)}`, { signal })
+}
+
 export async function changePassword({ currentPassword, newPassword, confirmPassword }) {
   const res = await doFetch('/api/v1/auth/change-password', {
     method: 'POST',
-    timeout: 10000,
+    timeout: 60000,
     body: JSON.stringify({
       current_password: currentPassword,
       new_password: newPassword,
       confirm_password: confirmPassword,
     }),
   })
+  const contentType = res.headers ? res.headers.get('content-type') : ''
+  if (contentType && contentType.includes('text/html')) {
+    const err = new Error('INVALID_API_RESPONSE')
+    err.code = 'INVALID_API_RESPONSE'
+    err.status = 502
+    throw err
+  }
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
     const errCode = data?.error?.code || (res.status === 401 ? 'UNAUTHORIZED' : (res.status === 400 ? 'INVALID_REQUEST' : 'CHANGE_PASSWORD_FAILED'))
@@ -142,8 +247,16 @@ export async function changePassword({ currentPassword, newPassword, confirmPass
 export async function updatePreferences(prefs) {
   const res = await doFetch('/api/v1/auth/preferences', {
     method: 'PUT',
+    timeout: 30000,
     body: JSON.stringify(prefs),
   })
+  const contentType = res.headers ? res.headers.get('content-type') : ''
+  if (contentType && contentType.includes('text/html')) {
+    const err = new Error('INVALID_API_RESPONSE')
+    err.code = 'INVALID_API_RESPONSE'
+    err.status = 502
+    throw err
+  }
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
     const err = new Error(data?.error?.code || 'UPDATE_PREFERENCES_FAILED')
@@ -155,14 +268,17 @@ export async function updatePreferences(prefs) {
 }
 
 export async function getProgress() {
-  const res = await doFetch('/api/v1/auth/progress', { method: 'GET' })
+  const res = await doFetch('/api/v1/auth/progress', { method: 'GET', timeout: 30000 })
   if (!res.ok) return null
+  const contentType = res.headers ? res.headers.get('content-type') : ''
+  if (contentType && contentType.includes('text/html')) return null
   return await res.json().catch(() => null)
 }
 
 export async function saveProgress({ activeLevel, unlockedLevels, completedLevels }) {
   const res = await doFetch('/api/v1/auth/progress', {
     method: 'PUT',
+    timeout: 60000,
     body: JSON.stringify({
       module_or_level: 'm5',
       active_level: activeLevel,
@@ -170,6 +286,13 @@ export async function saveProgress({ activeLevel, unlockedLevels, completedLevel
       completed_levels: completedLevels,
     }),
   })
+  const contentType = res.headers ? res.headers.get('content-type') : ''
+  if (contentType && contentType.includes('text/html')) {
+    const err = new Error('INVALID_API_RESPONSE')
+    err.code = 'INVALID_API_RESPONSE'
+    err.status = 502
+    throw err
+  }
   if (!res.ok) {
     const data = await res.json().catch(() => ({}))
     const err = new Error(data?.error?.code || 'SAVE_PROGRESS_FAILED')
@@ -413,6 +536,10 @@ export async function chatWithAssistant({ message, language = 'en', conversation
   }
 
   // Purely offline client-side fallback
+  return chatWithAssistantLocal({ message, language, conversationContext })
+}
+
+export async function chatWithAssistantLocal({ message, language = 'en', conversationContext = [] }) {
   const { generateLocalAssistantResponse } = await import('./assistantKnowledge.js')
   return generateLocalAssistantResponse({
     message,
@@ -445,28 +572,49 @@ export async function getAssistantStatus() {
 }
 
 export async function getM4Scenarios() {
-  const res = await doFetch('/api/v1/m4/scenarios', { method: 'GET' })
+  const endpoint = '/api/v1/m4/scenarios'
+  const res = await doFetch(endpoint, { method: 'GET' })
   if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`)
+    const err = new Error(`HTTP ${res.status}`)
+    err.status = res.status
+    err.endpoint = endpoint
+    throw err
+  }
+  if ((res.headers?.get('content-type') || '').includes('text/html')) {
+    const err = new Error('INVALID_API_RESPONSE')
+    err.status = 502
+    err.endpoint = endpoint
+    throw err
   }
   return await res.json()
 }
 
 export async function getM4Demo(scenarioId) {
-  const res = await doFetch('/api/v1/m4/demo', {
+  const endpoint = '/api/v1/m4/demo'
+  const res = await doFetch(endpoint, {
     method: 'POST',
     body: JSON.stringify({ scenario_id: scenarioId }),
   })
   if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`)
+    const err = new Error(`HTTP ${res.status}`)
+    err.status = res.status
+    err.endpoint = endpoint
+    throw err
+  }
+  if ((res.headers?.get('content-type') || '').includes('text/html')) {
+    const err = new Error('INVALID_API_RESPONSE')
+    err.status = 502
+    err.endpoint = endpoint
+    throw err
   }
   return await res.json()
 }
 
 export async function transcribeAudioOffline({ audioBase64, language = 'en' }) {
   try {
-    const res = await doFetch('/api/v1/voice/transcribe', {
+    const res = await doFetch(`${LOCAL_API_BASE}/api/v1/voice/transcribe`, {
       method: 'POST',
+      credentials: 'omit',
       body: JSON.stringify({
         audio_base64: audioBase64,
         language,
@@ -499,7 +647,7 @@ export async function transcribeAudioOffline({ audioBase64, language = 'en' }) {
 
 export async function checkVoiceStatus() {
   try {
-    const res = await doFetch('/api/v1/voice/status', { method: 'GET' })
+    const res = await doFetch(`${LOCAL_API_BASE}/api/v1/voice/status`, { method: 'GET', credentials: 'omit', timeout: 5000 })
     if (res.ok) {
       return await res.json().catch(() => null)
     }
@@ -509,8 +657,9 @@ export async function checkVoiceStatus() {
 
 export async function synthesizeSpeechOffline({ text, language = 'en' }) {
   try {
-    const res = await doFetch('/api/v1/voice/synthesize', {
+    const res = await doFetch(`${LOCAL_API_BASE}/api/v1/voice/synthesize`, {
       method: 'POST',
+      credentials: 'omit',
       body: JSON.stringify({ text, language }),
     })
     if (!res.ok) {
@@ -546,12 +695,15 @@ export async function synthesizeSpeechOffline({ text, language = 'en' }) {
 
 export async function getDeviceSecurityStatus() {
   try {
-    const res = await doFetch('/api/v1/device-security/status', { method: 'GET' })
+    const res = await doFetch(`${LOCAL_API_BASE}/api/v1/device-security/status`, { method: 'GET', credentials: 'omit', timeout: 5000 })
     if (!res.ok) {
       return {
         connected: false,
         status: res.status,
         error: res.status === 502 ? 'BACKEND_UNREACHABLE' : `HTTP_${res.status}`,
+        message: res.status === 403
+          ? 'The local inspection service rejected this website origin. Allow the exact ABBAY CYBERGUARD Pages origin in its local configuration.'
+          : 'The local Windows inspection service is not available on this PC.',
       }
     }
     const data = await res.json()
@@ -569,15 +721,16 @@ export async function getDeviceSecurityStatus() {
 export async function scanDeviceSecurity(payload) {
   let res
   try {
-    res = await doFetch('/api/v1/device-security/scan', {
+    res = await doFetch(`${LOCAL_API_BASE}/api/v1/device-security/scan`, {
       method: 'POST',
+      credentials: 'omit',
       body: JSON.stringify(payload),
     })
   } catch (fetchErr) {
     const err = new Error('Network error connecting to backend')
     err.status = 502
     err.code = 'BACKEND_UNREACHABLE'
-    err.detail = 'Cannot connect to CyberShield backend on http://127.0.0.1:8000. Please ensure start.bat or backend/run.py is running.'
+    err.detail = 'Cannot connect to the local Windows inspection service at 127.0.0.1:8000. Start the local service on this Windows PC.'
     throw err
   }
 
@@ -586,7 +739,7 @@ export async function scanDeviceSecurity(payload) {
     err.status = res.status
     if (res.status === 502) {
       err.code = 'BACKEND_UNREACHABLE'
-      err.detail = 'CyberShield backend is unreachable on port 8000 (HTTP 502 Bad Gateway). Please run start.bat or cd backend && python run.py.'
+      err.detail = 'The local inspection service returned HTTP 502. Confirm the Windows service is running on this PC.'
     } else if (res.status === 504) {
       err.code = 'GATEWAY_TIMEOUT'
       err.detail = 'Request timed out waiting for backend response.'
@@ -604,8 +757,3 @@ export async function scanDeviceSecurity(payload) {
   }
   return await res.json()
 }
-
-
-
-
-

@@ -415,26 +415,32 @@ export function resolveSpeechLanguage(text, preferredLang = 'en') {
  * - 'am' -> matches 'am', 'am-ET' (e.g. Microsoft መቅደስ or Microsoft አምሀ)
  * - 'om' -> matches 'om', 'om-ET'. If NONE exists, returns NULL (never returns English or Amharic).
  */
-export function getVoiceForLanguage(lang, voices = []) {
+export function getVoiceForLanguage(lang, voices = [], { allowOnline = false } = {}) {
   if (!voices || voices.length === 0) return null
   const target = (lang || '').toLowerCase().trim()
+  const localVoices = voices.filter((voice) => voice.localService === true)
+  const onlineAmharicVoices = target === 'am' && allowOnline
+    ? voices.filter((voice) => voice.localService === false)
+    : []
+  const eligibleVoices = onlineAmharicVoices.length > 0 ? onlineAmharicVoices : localVoices
+  if (eligibleVoices.length === 0) return null
 
   if (target === 'am') {
-    return voices.find((v) => {
+    return eligibleVoices.find((v) => {
       const vLang = (v.lang || '').toLowerCase()
       return vLang === 'am-et' || vLang === 'am' || vLang.startsWith('am-')
     }) || null
   }
 
   if (target === 'om') {
-    return voices.find((v) => {
+    return eligibleVoices.find((v) => {
       const vLang = (v.lang || '').toLowerCase()
       return vLang === 'om-et' || vLang === 'om' || vLang.startsWith('om-') || vLang.includes('oromo')
     }) || null
   }
 
   if (target === 'en') {
-    return voices.find((v) => {
+    return eligibleVoices.find((v) => {
       const vLang = (v.lang || '').toLowerCase()
       return vLang === 'en-us' || vLang === 'en-gb' || vLang.startsWith('en')
     }) || null
@@ -602,11 +608,14 @@ function playOfflineSpeech({ text, language, onStart, onEnd, onError }) {
   }
 }
 
+export function requestOnlineVoiceConsent(confirm, message) {
+  return typeof confirm === 'function' && confirm(message) === true
+}
+
 /**
  * Speaks text using the Layered Voice Architecture:
- * - English ('en'): synthesizes via browser window.speechSynthesis.
- * - Amharic ('am') & Afaan Oromoo ('om'): synthesizes via offline backend MMS VITS.
- * - Online Mekdes: available only if explicitly chosen and connected.
+ * - Uses only browser voices marked local unless online Amharic speech was explicitly approved.
+ * - Falls back to the local MMS backend for Amharic and Afaan Oromoo when requested.
  * - Strict isolation: never substitutes English speech for Amharic or Afaan Oromoo.
  */
 export function speakText({
@@ -617,7 +626,7 @@ export function speakText({
   onEnd,
   onError,
   fallbackOffline = false,
-  preferredProvider = 'auto',
+  allowOnlineVoice = false,
 }) {
   stopSpeaking() // Stop any previous playback (SpeechSynthesis, Web Audio, or HTMLAudioElement)
   unlockAudioContext() // Synchronously unlock AudioContext inside user click activation
@@ -633,16 +642,11 @@ export function speakText({
     ? voices
     : (isSpeechSynthesisSupported() ? (window.speechSynthesis.getVoices() || []) : [])
 
-  const matchedVoice = getVoiceForLanguage(targetLang, availableVoices)
-  const forceOffline = (preferredProvider === 'offline_mms')
-
-  // When offline synthesis is requested (fallbackOffline === true) for non-English:
-  // For 'am': Use genuine natural female voice (Microsoft መቅደስ Online) when available unless user explicitly chose offline MMS.
-  // For 'om': Always prioritize offline MMS (no browser native voice exists).
-  const shouldUseOfflineDirectly = fallbackOffline && (
-    targetLang === 'om' ||
-    (targetLang === 'am' && forceOffline)
-  )
+  const consentedOnlineAmharic = targetLang === 'am' && allowOnlineVoice === true
+  const matchedVoice = getVoiceForLanguage(targetLang, availableVoices, {
+    allowOnline: consentedOnlineAmharic,
+  })
+  const shouldUseOfflineDirectly = fallbackOffline && targetLang === 'om'
 
   // LAYER A: Browser Native Speech Synthesis (when supported, matched, and offline direct not forced)
   if (!shouldUseOfflineDirectly && matchedVoice && isSpeechSynthesisSupported()) {
@@ -657,7 +661,13 @@ export function speakText({
     activeUtterance = utterance
 
     utterance.onstart = () => {
-      if (onStart) onStart({ engine: 'browser_native', voice: matchedVoice.name, language: targetLang })
+      if (onStart) {
+        onStart({
+          engine: matchedVoice.localService === true ? 'browser_local' : 'browser_online',
+          voice: matchedVoice.name,
+          language: targetLang,
+        })
+      }
     }
     utterance.onend = () => {
       if (activeUtterance === utterance) activeUtterance = null
@@ -665,8 +675,7 @@ export function speakText({
     }
     utterance.onerror = (e) => {
       if (activeUtterance === utterance) activeUtterance = null
-      // Graceful fallback: If online voice fails (e.g. offline network disconnect for Microsoft መቅደስ Online),
-      // seamlessly synthesize via local offline MMS
+      // Fall back to local offline MMS if an opted-in online voice fails.
       if (fallbackOffline && (targetLang === 'am' || targetLang === 'om')) {
         playOfflineSpeech({ text: clean, language: targetLang, onStart, onEnd, onError })
         return
@@ -678,34 +687,18 @@ export function speakText({
     return utterance
   }
 
-  // English without explicit matchedVoice: default browser voice
+  // Never let the browser choose an unknown voice; it may require cloud processing.
   if (targetLang === 'en') {
     if (!isSpeechSynthesisSupported()) {
       if (onError) onError({ code: 'NOT_SUPPORTED', language: 'en', message: 'Speech synthesis is not supported on this device.' })
       return null
     }
-    const synth = window.speechSynthesis
-    const utterance = new window.SpeechSynthesisUtterance(clean)
-    utterance.lang = 'en-US'
-    utterance.rate = 1.0
-    utterance.pitch = 1.0
-
-    activeUtterance = utterance
-
-    utterance.onstart = () => {
-      if (onStart) onStart({ engine: 'browser_native', language: 'en' })
-    }
-    utterance.onend = () => {
-      if (activeUtterance === utterance) activeUtterance = null
-      if (onEnd) onEnd()
-    }
-    utterance.onerror = (e) => {
-      if (activeUtterance === utterance) activeUtterance = null
-      if (onError) onError({ code: 'SYNTHESIS_ERROR', language: 'en', event: e, message: e.error || 'Speech playback failed' })
-    }
-
-    synth.speak(utterance)
-    return utterance
+    if (onError) onError({
+      code: 'LOCAL_VOICE_UNAVAILABLE',
+      language: 'en',
+      message: 'No verified local English speech voice is available on this device.',
+    })
+    return null
   }
 
   // LAYER B: Attempt local offline backend synthesis if requested

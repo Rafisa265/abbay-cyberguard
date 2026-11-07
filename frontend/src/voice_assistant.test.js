@@ -9,6 +9,7 @@ import {
   getVoiceForLanguage,
   resolveSpeechLanguage,
   speakText,
+  requestOnlineVoiceConsent,
   stopSpeaking,
   pauseSpeaking,
   resumeSpeaking,
@@ -67,11 +68,11 @@ Check **this important link** [CBE Bank](https://cbe.com.et) immediately!
 
   it('3. Genuine Voice Matching: selects correct language and strictly avoids wrong-language substitution', () => {
     const mockVoices = [
-      { name: 'Microsoft David', lang: 'en-US' },
-      { name: 'Microsoft Sonia', lang: 'en-GB' },
-      { name: 'Microsoft መቅደስ Online (Natural) - Amharic (Ethiopia)', lang: 'am-ET' },
-      { name: 'Microsoft አምሀ Online (Natural) - Amharic (Ethiopia)', lang: 'am-ET' },
-      { name: 'Microsoft Paul', lang: 'fr-FR' },
+      { name: 'Microsoft David', lang: 'en-US', localService: true },
+      { name: 'Microsoft Sonia', lang: 'en-GB', localService: true },
+      { name: 'Microsoft መቅደስ Local - Amharic (Ethiopia)', lang: 'am-ET', localService: true },
+      { name: 'Microsoft አምሀ Local - Amharic (Ethiopia)', lang: 'am-ET', localService: true },
+      { name: 'Microsoft Paul', lang: 'fr-FR', localService: true },
     ]
 
     // English
@@ -107,7 +108,7 @@ Check **this important link** [CBE Bank](https://cbe.com.et) immediately!
       }
 
       const mockVoices = [
-        { name: 'Microsoft David', lang: 'en-US' },
+        { name: 'Microsoft David', lang: 'en-US', localService: true },
       ]
 
       let errorReceived = null
@@ -150,8 +151,8 @@ Check **this important link** [CBE Bank](https://cbe.com.et) immediately!
       }
 
       const mockVoices = [
-        { name: 'Microsoft David', lang: 'en-US' },
-        { name: 'Microsoft መቅደስ', lang: 'am-ET' },
+        { name: 'Microsoft David', lang: 'en-US', localService: true },
+        { name: 'Microsoft መቅደስ', lang: 'am-ET', localService: true },
       ]
 
       // Speak English
@@ -247,6 +248,8 @@ Check **this important link** [CBE Bank](https://cbe.com.et) immediately!
     const htmlAm = renderToString(React.createElement(Assistant, { t: tAm, lang: 'am' }))
     expect(htmlAm).toContain('assistant-mic-btn')
     expect(htmlAm).toContain('የድምጽ ግብዓት')
+    expect(htmlAm).toMatch(/class="btn btn-xs ghost"[^>]*title="Online speech sends response text/)
+    expect(htmlAm).toMatch(/class="btn btn-xs btn-primary"[^>]*title="Uses a local Amharic voice/)
   })
 
   it('9. UI Rendering: renders read response speaker button on assistant message rows', () => {
@@ -293,7 +296,7 @@ Check **this important link** [CBE Bank](https://cbe.com.et) immediately!
       speakText({
         text: 'Testing failure handling',
         lang: 'en',
-        voices: [{ name: 'Test Voice', lang: 'en-US' }],
+        voices: [{ name: 'Test Voice', lang: 'en-US', localService: true }],
         onError: (err) => {
           capturedError = err
         },
@@ -312,7 +315,7 @@ Check **this important link** [CBE Bank](https://cbe.com.et) immediately!
     }
   })
 
-  it('12. Voice Differentiation: identifies remote online vs local voices and upholds Afaan Oromoo honesty', () => {
+  it('12. Voice Differentiation: blocks online voices unless explicitly allowed and upholds Afaan Oromoo honesty', () => {
     const mixedVoices = [
       { name: 'Microsoft David', lang: 'en-US', localService: true },
       { name: 'Microsoft Jenny Online (Natural)', lang: 'en-US', localService: false },
@@ -325,14 +328,139 @@ Check **this important link** [CBE Bank](https://cbe.com.et) immediately!
     expect(enVoice).toBeTruthy()
     expect(enVoice.lang).toBe('en-US')
 
-    // Amharic matched correctly to its natural voice
+    // Online Amharic voices are blocked by default.
     const amVoice = getVoiceForLanguage('am', mixedVoices)
-    expect(amVoice).toBeTruthy()
-    expect(amVoice.name).toContain('መቅደስ')
+    expect(amVoice).toBe(null)
+
+    // The Amharic online voice is only eligible after explicit user consent.
+    const consentedAmVoice = getVoiceForLanguage('am', mixedVoices, { allowOnline: true })
+    expect(consentedAmVoice).toBeTruthy()
+    expect(consentedAmVoice.name).toContain('መቅደስ')
+    expect(getVoiceForLanguage('en', mixedVoices, { allowOnline: true }).localService).toBe(true)
 
     // Afaan Oromoo strictly returns null without substituting English or Amharic
     const omVoice = getVoiceForLanguage('om', mixedVoices)
     expect(omVoice).toBe(null)
+  })
+
+  it('requires explicit online voice consent and defaults to local-only speech', () => {
+    const origWindow = global.window
+    const speak = vi.fn()
+    try {
+      global.window = {
+        speechSynthesis: { cancel: vi.fn(), speak },
+        SpeechSynthesisUtterance: function(text) {
+          this.text = text
+          this.voice = null
+        },
+      }
+      const onlineAmharic = {
+        name: 'Amharic Cloud Voice',
+        lang: 'am-ET',
+        localService: false,
+      }
+      let error
+
+      speakText({
+        text: 'ሰላም',
+        lang: 'am',
+        voices: [onlineAmharic],
+        preferredProvider: 'auto',
+        onError: (value) => { error = value },
+      })
+
+      expect(speak).not.toHaveBeenCalled()
+      expect(error.code).toBe('NO_VOICE_FOR_LANGUAGE')
+      expect(requestOnlineVoiceConsent(() => false, 'consent?')).toBe(false)
+    } finally {
+      global.window = origWindow
+    }
+  })
+
+  it('uses an online Amharic voice only after affirmative consent', () => {
+    const origWindow = global.window
+    let spoken
+    try {
+      global.window = {
+        speechSynthesis: {
+          cancel: vi.fn(),
+          speak: vi.fn((utterance) => { spoken = utterance }),
+        },
+        SpeechSynthesisUtterance: function(text) {
+          this.text = text
+          this.voice = null
+        },
+      }
+      const confirm = vi.fn(() => true)
+      const consentGranted = requestOnlineVoiceConsent(confirm, 'Online speech sends text. Continue?')
+      speakText({
+        text: 'ሰላም',
+        lang: 'am',
+        voices: [{ name: 'Amharic Cloud Voice', lang: 'am-ET', localService: false }],
+        allowOnlineVoice: consentGranted,
+        onStart: ({ engine }) => { spoken.engine = engine },
+      })
+
+      expect(confirm).toHaveBeenCalledOnce()
+      expect(spoken.voice.name).toBe('Amharic Cloud Voice')
+      spoken.onstart()
+      expect(spoken.engine).toBe('browser_online')
+    } finally {
+      global.window = origWindow
+    }
+  })
+
+  it('never selects online voices after switching to English or Afaan Oromoo', () => {
+    const onlineVoices = [
+      { name: 'English Cloud Voice', lang: 'en-US', localService: false },
+      { name: 'Amharic Cloud Voice', lang: 'am-ET', localService: false },
+      { name: 'Oromo Cloud Voice', lang: 'om-ET', localService: false },
+    ]
+
+    expect(getVoiceForLanguage('en', onlineVoices, { allowOnline: true })).toBe(null)
+    expect(getVoiceForLanguage('om', onlineVoices, { allowOnline: true })).toBe(null)
+    expect(getVoiceForLanguage('am', onlineVoices, { allowOnline: false })).toBe(null)
+  })
+
+  it('falls back from a consented online Amharic voice to local synthesis on provider failure', async () => {
+    const origWindow = global.window
+    let utterance
+    const localFetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({ error: { code: 'TTS_MODEL_NOT_INSTALLED' } }),
+    })
+    let error
+    try {
+      global.window = {
+        fetch: localFetch,
+        speechSynthesis: {
+          cancel: vi.fn(),
+          speak: vi.fn((value) => { utterance = value }),
+        },
+        SpeechSynthesisUtterance: function(text) {
+          this.text = text
+          this.voice = null
+        },
+      }
+
+      speakText({
+        text: 'ሰላም',
+        lang: 'am',
+        voices: [{ name: 'Amharic Cloud Voice', lang: 'am-ET', localService: false }],
+        allowOnlineVoice: true,
+        fallbackOffline: true,
+        onError: (value) => { error = value },
+      })
+      utterance.onerror({ error: 'network' })
+      await vi.waitFor(() => expect(localFetch).toHaveBeenCalledOnce())
+      await vi.waitFor(() => expect(error?.code).toBe('TTS_MODEL_NOT_INSTALLED'))
+
+      expect(localFetch.mock.calls[0][0]).toBe('http://127.0.0.1:8000/api/v1/voice/synthesize')
+      expect(JSON.parse(localFetch.mock.calls[0][1].body)).toEqual({ text: 'ሰላም', language: 'am' })
+    } finally {
+      global.window = origWindow
+    }
   })
 
   it('13. Quantization & Boundary Clamping: correctly quantizes Float32 to Int16 with NaN/Inf protection', () => {
@@ -413,9 +541,10 @@ Check **this important link** [CBE Bank](https://cbe.com.et) immediately!
       })
 
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/v1/voice/transcribe',
+        'http://127.0.0.1:8000/api/v1/voice/transcribe',
         expect.objectContaining({
           method: 'POST',
+          credentials: 'omit',
           body: JSON.stringify({
             audio_base64: 'UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=',
             language: 'om',
@@ -448,6 +577,8 @@ Check **this important link** [CBE Bank](https://cbe.com.et) immediately!
       'assistant.voice_stt_unsupported_om',
       'assistant.voice_transcribe_busy',
       'assistant.voice_transcribe_error',
+      'assistant.voice_local_tts_unavailable',
+      'assistant.voice_cloud_consent',
       'assistant.voice_tts_not_supported',
       'assistant.voice_tts_playback_failed',
     ]
@@ -458,8 +589,7 @@ Check **this important link** [CBE Bank](https://cbe.com.et) immediately!
       expect(om[key]).toBeTruthy()
     }
 
-    // Strict commitment: "Browser" must be capitalized in om.js
-    expect(om['assistant.voice_stt_unsupported_om']).toContain('Browser')
+    expect(om['assistant.voice_stt_unsupported_om']).toContain('Whisper')
     expect(om['assistant.voice_not_supported']).toContain('Browser')
     expect(om['assistant.voice_permission_denied']).toContain('Browser')
   })
@@ -483,14 +613,18 @@ Check **this important link** [CBE Bank](https://cbe.com.et) immediately!
       stopSpeaking()
       expect(cancelMock).toHaveBeenCalled()
 
-      // 2. English uses browser native synthesis
+      // 2. English does not fall back to an unknown potentially cloud-backed voice
+      let englishError = null
       const utt = speakText({
         text: 'Welcome to ABBAY CYBERGUARD',
         lang: 'en',
         voices: [],
+        onError: (err) => {
+          englishError = err
+        },
       })
-      expect(utt).toBeTruthy()
-      expect(utt.text).toBe('Welcome to ABBAY CYBERGUARD')
+      expect(utt).toBeNull()
+      expect(englishError.code).toBe('LOCAL_VOICE_UNAVAILABLE')
 
       // 3. Afaan Oromoo with fallbackOffline: true returns controller with cancel()
       let omErr = null
@@ -553,8 +687,8 @@ Check **this important link** [CBE Bank](https://cbe.com.et) immediately!
 
   it('21. Strict Voice Isolation: never returns English voice for non-English or unknown languages', () => {
     const mockVoices = [
-      { name: 'Microsoft David', lang: 'en-US' },
-      { name: 'Microsoft Zira', lang: 'en-US' },
+      { name: 'Microsoft David', lang: 'en-US', localService: true },
+      { name: 'Microsoft Zira', lang: 'en-US', localService: true },
     ]
 
     expect(getVoiceForLanguage('om', mockVoices)).toBe(null)
@@ -574,7 +708,7 @@ Check **this important link** [CBE Bank](https://cbe.com.et) immediately!
         speechSynthesis: {
           cancel: vi.fn(),
           speak: vi.fn(),
-          getVoices: () => [{ name: 'Microsoft David', lang: 'en-US' }],
+          getVoices: () => [{ name: 'Microsoft David', lang: 'en-US', localService: true }],
         },
         SpeechSynthesisUtterance: vi.fn(),
       }
@@ -627,4 +761,3 @@ Check **this important link** [CBE Bank](https://cbe.com.et) immediately!
     }
   })
 })
-

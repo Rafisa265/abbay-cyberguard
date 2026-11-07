@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import React from 'react'
 import { renderToString } from 'react-dom/server'
 import AcademyCertificateModal from './components/AcademyCertificateModal.jsx'
@@ -11,118 +11,72 @@ import om from './locales/om.js'
 describe('ABBAY CYBERGUARD — Final Device Security & Certificate Integrity Audit', () => {
   const tEn = makeT('en')
 
-  describe('Part B: Academy Certificate Accuracy, Cryptographic Token & Presentation Audit', () => {
-    it('1. Generates unpredictable, cryptographic Certificate ID and 128-bit hex Verification Code', () => {
+  describe('Part B: Server-Issued Academy Certificate Integrity', () => {
+    it('does not invent local IDs or claim verification before server issuance', () => {
       const certData = {
         levelNum: 1,
-        title: 'Stage 1 — Level 1 Milestone Certificate',
+        title: 'Level 1: Essential Awareness',
         recipientName: 'Abel Tesfaye',
-        score: 95,
-        stars: 3,
       }
 
       const html = renderToString(React.createElement(AcademyCertificateModal, { certData, onClose: () => {}, t: tEn }))
-      
-      // ID must start with ACYBER-YYYY- and not follow predictable old formula 1337 + 42 = 0x563
-      expect(html).toMatch(/ACYBER-\d{4}-[0-9A-F]{16}/)
-      expect(html).not.toContain('000563')
 
-      // Verification code must be 32-character hex and not predictable `${certId}-${name}-verified`
-      expect(html).toMatch(/[0-9a-f]{32}/)
-      expect(html).not.toContain('abeltesfaye-verified')
+      expect(html).toContain('Preview only')
+      expect(html).not.toMatch(/ACYBER-\d{4}-/)
+      expect(html).not.toContain('LOCALLY RECORDED')
     })
 
-    it('2. Honest Platform Seal: displays "LOCALLY RECORDED" instead of misleading "VERIFIED SECURE"', () => {
+    it('shows the server-issued record and does not expose a fabricated local code', () => {
       const certData = {
-        levelNum: 2,
-        title: 'Stage 1 — Level 2 Milestone Certificate',
+        levelNum: 1,
+        title: 'Level 1: Essential Awareness',
         recipientName: 'Sara Bekele',
-        score: 85,
-        stars: 2,
+        certificate: {
+          certificate_id: 'ACYBER-2026-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+          recipient_name: 'Sara Bekele',
+          course_title: 'Level 1: Essential Awareness',
+          issued_at: '2026-01-01T00:00:00Z',
+          status: 'issued',
+          issuer: 'ABBAY CYBERGUARD Academy',
+        },
       }
 
       const html = renderToString(React.createElement(AcademyCertificateModal, { certData, onClose: () => {}, t: tEn }))
 
-      expect(html).toContain('LOCALLY RECORDED')
+      expect(html).toContain('ACYBER-2026-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')
+      expect(html).toContain('issued')
       expect(html).not.toContain('VERIFIED SECURE')
-      expect(html).toContain('Verification is local only')
+      expect(html).not.toContain('Local Verification Code')
     })
 
-    it('3. Honest Educational Record: canvas/footer states "EDUCATIONAL COMPLETION RECORD" without external accreditation claim', () => {
+    it('labels the document as an assessment milestone and disclaims course-reading verification', () => {
       const certData = {
         levelNum: 1,
         title: 'Phishing Defense Assessment',
-        recipientName: 'Guest Defender',
+        recipientName: 'Learner Name',
       }
 
       const html = renderToString(React.createElement(AcademyCertificateModal, { certData, onClose: () => {}, t: tEn }))
 
-      expect(html).toContain('CERTIFICATE OF EDUCATIONAL COMPLETION')
+      expect(html).toContain('CERTIFICATE OF ASSESSMENT MILESTONE')
       expect(html).not.toContain('OFFICIAL VERIFIED RECORD')
-      expect(html).toContain('It does not confer professional licensure, university degree credit, or official')
+      expect(html).toContain('Does not confer professional licensure')
+      expect(html).toContain('lesson reading is not verified')
     })
 
-    it('4. Conditional Mastery Text: distinguishes "mastered" (score>=80 + 3 stars) vs "completed" vs "participated"', () => {
-      // 4a. Mastered: score 90 + 3 stars
-      const certMastered = {
-        levelNum: 1,
-        score: 90,
-        stars: 3,
-        recipientName: 'Top Learner',
-      }
-      const htmlMastered = renderToString(React.createElement(AcademyCertificateModal, { certData: certMastered, onClose: () => {}, t: tEn }))
-      expect(htmlMastered).toContain('has successfully mastered and demonstrated competence in')
-
-      // 4b. Completed: score 70 + 1 star
-      const certCompleted = {
-        levelNum: 1,
-        score: 70,
-        stars: 1,
-        recipientName: 'Good Learner',
-      }
-      const htmlCompleted = renderToString(React.createElement(AcademyCertificateModal, { certData: certCompleted, onClose: () => {}, t: tEn }))
-      expect(htmlCompleted).toContain('has successfully completed coursework in')
-      expect(htmlCompleted).not.toContain('has successfully mastered')
-
-      // 4c. Participated: score 45
-      const certParticipated = {
-        levelNum: 1,
-        score: 45,
-        stars: 0,
-        recipientName: 'Participant',
-      }
-      const htmlParticipated = renderToString(React.createElement(AcademyCertificateModal, { certData: certParticipated, onClose: () => {}, t: tEn }))
-      expect(htmlParticipated).toContain('has participated in and engaged with')
-    })
-
-    it('5. Score and Stars Prominently Rendered on Certificate Surface', () => {
-      const certData = {
-        levelNum: 3,
-        title: 'Privacy & Device Hygiene',
-        recipientName: 'Marta Hailu',
-        score: 92,
-        stars: 3,
-      }
-
-      const html = renderToString(React.createElement(AcademyCertificateModal, { certData, onClose: () => {}, t: tEn }))
-
-      expect(html).toContain('Assessment Score:')
-      expect(html).toContain('92%')
-      expect(html).toContain('★★★')
-    })
-
-    it('6. Works in Guest Mode Without Login, Recipient Name is Editable', () => {
+    it('provides a confirmation field and does not call the issuer during rendering', () => {
+      const onIssue = vi.fn()
       const certData = {
         levelNum: 1,
-        title: 'Essential Awareness Assessment',
-        recipientName: 'Guest Defender',
-        score: 80,
+        title: 'Level 1: Essential Awareness',
+        recipientName: 'Learner Name',
       }
 
-      const html = renderToString(React.createElement(AcademyCertificateModal, { certData, onClose: () => {}, t: tEn }))
+      const html = renderToString(React.createElement(AcademyCertificateModal, { certData, onIssue, onClose: () => {}, t: tEn }))
 
-      expect(html).toContain('Guest Defender')
-      expect(html).toContain('Change Name')
+      expect(html).toContain('certificate-recipient')
+      expect(html).toContain('Issue certificate')
+      expect(onIssue).not.toHaveBeenCalled()
     })
   })
 
@@ -165,6 +119,20 @@ describe('ABBAY CYBERGUARD — Final Device Security & Certificate Integrity Aud
         'academy.cert.completion_type_participated',
         'academy.cert.locally_recorded',
         'academy.cert.educational_completion_record',
+        'academy.cert.ready',
+        'academy.cert.requirements_pending',
+        'academy.cert.sync_failed',
+        'academy.cert.login_required',
+        'academy.cert.name_confirmation',
+        'academy.cert.issue_btn',
+        'academy.cert.download_pdf',
+        'academy.cert.my_certificates',
+        'academy.verify.title',
+        'academy.verify.loading',
+        'academy.verify.not_found',
+        'academy.verify.unavailable',
+        'academy.verify.valid',
+        'academy.verify.privacy',
       ]
 
       for (const k of requiredKeys) {
@@ -178,4 +146,3 @@ describe('ABBAY CYBERGUARD — Final Device Security & Certificate Integrity Aud
     })
   })
 })
-

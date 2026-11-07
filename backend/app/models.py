@@ -11,6 +11,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import relationship
@@ -99,6 +100,82 @@ class LearningProgress(Base):
     user = relationship("User", back_populates="learning_progress")
 
 
+class AcademyLessonProgress(Base):
+    __tablename__ = "academy_lesson_progress"
+    __table_args__ = (
+        UniqueConstraint("user_id", "topic_key", name="uq_academy_lesson_user_topic"),
+    )
+
+    id = Column(GUID, primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    topic_key = Column(String(32), nullable=False)
+    completed_sections = Column(Text, default="[]", nullable=False)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class AcademyLevelCompletion(Base):
+    __tablename__ = "academy_level_completions"
+    __table_args__ = (
+        UniqueConstraint("user_id", "level_num", name="uq_academy_level_user_level"),
+    )
+
+    id = Column(GUID, primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    level_num = Column(Integer, nullable=False)
+    score = Column(Integer, nullable=False)
+    correct_count = Column(Integer, nullable=False)
+    total_count = Column(Integer, nullable=False)
+    completed_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    assessment_attempt_id = Column(
+        GUID,
+        ForeignKey("academy_quiz_attempts.id", ondelete="RESTRICT"),
+        unique=True,
+        nullable=True,
+    )
+
+
+class AcademyQuizAttempt(Base):
+    __tablename__ = "academy_quiz_attempts"
+    __table_args__ = (
+        Index(
+            "uq_academy_quiz_attempts_active_user_level",
+            "user_id",
+            "level_num",
+            unique=True,
+            sqlite_where=text("status = 'in_progress'"),
+            postgresql_where=text("status = 'in_progress'"),
+        ),
+    )
+
+    id = Column(GUID, primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    level_num = Column(Integer, nullable=False)
+    question_data = Column(Text, nullable=False)
+    status = Column(String(16), default="in_progress", nullable=False)
+    score = Column(Integer, nullable=True)
+    correct_count = Column(Integer, nullable=True)
+    total_count = Column(Integer, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    submitted_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class AcademyCertificate(Base):
+    __tablename__ = "academy_certificates"
+    __table_args__ = (
+        UniqueConstraint("user_id", "level_num", name="uq_academy_certificate_user_level"),
+    )
+
+    id = Column(GUID, primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    certificate_id = Column(String(48), unique=True, index=True, nullable=False)
+    level_num = Column(Integer, nullable=False)
+    recipient_name = Column(String(200), nullable=False)
+    course_title = Column(String(200), nullable=False)
+    issued_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    status = Column(String(16), default="issued", nullable=False)
+
+
 class UserSession(Base):
     __tablename__ = "user_sessions"
 
@@ -129,4 +206,3 @@ class Notification(Base):
     read_at = Column(DateTime(timezone=True), nullable=True)
 
     user = relationship("User", back_populates="notifications")
-

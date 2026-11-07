@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { chatWithAssistant, getAssistantStatus } from '../lib/api.js'
+import { chatWithAssistant, chatWithAssistantLocal, getAssistantStatus } from '../lib/api.js'
 import { BotIcon, SparklesIcon } from './Icons.jsx'
 import {
   isSpeechRecognitionSupported,
@@ -14,6 +14,7 @@ import {
   buildCanonicalWav,
   uint8ArrayToBase64,
   transcribeAudioOffline,
+  requestOnlineVoiceConsent,
 } from '../lib/voiceAssistant.js'
 
 export function normalizeMarkdownEscapes(text) {
@@ -381,6 +382,7 @@ export default function Assistant({ t, lang, onNavigate, assistantContext, initi
   }, [buildInitialMessage])
 
   const [input, setInput] = useState('')
+  const [voiceDraft, setVoiceDraft] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [statusInfo, setStatusInfo] = useState(null)
@@ -395,9 +397,13 @@ export default function Assistant({ t, lang, onNavigate, assistantContext, initi
   const [speakingEngine, setSpeakingEngine] = useState(null)
   const [voiceError, setVoiceError] = useState(null)
   const [voices, setVoices] = useState([])
-  const [voiceProvider, setVoiceProvider] = useState('auto')
+  const [onlineVoiceConsentGranted, setOnlineVoiceConsentGranted] = useState(false)
   const recognitionRef = useRef(null)
   const recordingRef = useRef(null)
+
+  useEffect(() => {
+    setOnlineVoiceConsentGranted(false)
+  }, [lang])
 
   useEffect(() => {
     let mounted = true
@@ -460,11 +466,16 @@ export default function Assistant({ t, lang, onNavigate, assistantContext, initi
           setVoiceError(t('assistant.voice_transcribe_busy') || 'Speech engine is busy. Please try again in a moment.')
         } else if (result.error.code === 'STT_UNSUPPORTED_OFFLINE') {
           setVoiceError(t('assistant.voice_stt_unsupported_om') || 'Afaan Oromoo offline speech recognition is currently unsupported.')
+        } else if (result.error.code === 'STT_UNAVAILABLE') {
+          setVoiceError(t('assistant.voice_stt_model_unavailable') || 'Offline speech recognition for this language is not installed on this device. Audio was not sent to the hosted service.')
+        } else if (result.error.code === 'OFFLINE_UNAVAILABLE') {
+          setVoiceError(t('assistant.voice_local_service_unavailable') || 'Cannot reach the local offline speech service. Audio stays on this device; type your question instead.')
         } else {
           setVoiceError(t('assistant.voice_transcribe_error') || 'Failed to transcribe speech.')
         }
       } else if (result.transcript) {
         setInput((prev) => (prev ? `${prev} ${result.transcript}` : result.transcript))
+        setVoiceDraft(true)
       }
     } catch {
       setVoiceError(t('assistant.voice_transcribe_error') || 'Failed to process voice input.')
@@ -554,7 +565,7 @@ export default function Assistant({ t, lang, onNavigate, assistantContext, initi
       lang: targetLang,
       voices,
       fallbackOffline: true,
-      preferredProvider: voiceProvider,
+      allowOnlineVoice: lang === 'am' && onlineVoiceConsentGranted,
       onStart: (info) => {
         setSpeakingMsgId(msgId)
         setSpeakingEngine(info?.engine || 'tts')
@@ -575,6 +586,8 @@ export default function Assistant({ t, lang, onNavigate, assistantContext, initi
           }
         } else if (err?.code === 'TTS_MODEL_NOT_INSTALLED') {
           setVoiceError(t('assistant.voice_model_not_installed') || `Offline voice model for ${errLang.toUpperCase()} is not installed. Text guidance remains available.`)
+        } else if (err?.code === 'LOCAL_VOICE_UNAVAILABLE') {
+          setVoiceError(t('assistant.voice_local_tts_unavailable') || 'No verified local speech voice is available on this device. Text guidance remains available.')
         } else if (err?.code === 'OFFLINE_UNAVAILABLE' || err?.code === 'BACKEND_UNREACHABLE') {
           setVoiceError(t('assistant.voice_service_unavailable') || 'Offline speech synthesis service is currently unreachable. Ensure local backend is running.')
         } else if (err?.code === 'NOT_SUPPORTED') {
@@ -609,35 +622,41 @@ export default function Assistant({ t, lang, onNavigate, assistantContext, initi
   const handleSend = async (textToSend = null, forceOnline = false) => {
     const text = (textToSend || input).trim()
     if (!text || loading) return
+    const voiceDraftMessage = voiceDraft && textToSend === null
 
     setError(null)
     const userMsg = {
       id: `user_${Date.now()}`,
       role: 'user',
       content: text,
+      localVoiceTranscript: voiceDraftMessage,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     }
 
     const nextMessages = [...messages, userMsg]
     setMessages(nextMessages)
     setInput('')
+    setVoiceDraft(false)
     setLoading(true)
 
     // Build minimal context turns (last 4 turns)
-    const context = nextMessages.slice(-5, -1).map((m) => ({
+    const context = nextMessages.slice(-5, -1).filter((m) => !m.localVoiceTranscript).map((m) => ({
       role: m.role,
       content: m.content,
       matchedTopic: m.matchedTopic || null,
     }))
 
     try {
-      const resp = await chatWithAssistant({
+      const request = {
         message: text,
         language: lang,
         conversationContext: context,
         onlineConsent: onlineConsentGiven,
         forceOnline,
-      })
+      }
+      const resp = voiceDraftMessage
+        ? await chatWithAssistantLocal(request)
+        : await chatWithAssistant(request)
 
       if (resp.status === 'ONLINE_CONSENT_REQUIRED') {
         // Hold this message for consent confirmation
@@ -648,6 +667,7 @@ export default function Assistant({ t, lang, onNavigate, assistantContext, initi
         id: `asst_${Date.now()}`,
         role: 'assistant',
         content: resp.reply,
+        localVoiceTranscript: voiceDraftMessage,
         engine: resp.engine || 'offline_knowledge_v1',
         status: resp.status,
         language: resp.language || lang,
@@ -699,6 +719,9 @@ export default function Assistant({ t, lang, onNavigate, assistantContext, initi
 
   const handleClearChat = () => {
     stopSpeaking()
+    setInput('')
+    setVoiceDraft(false)
+    setOnlineVoiceConsentGranted(false)
     if (recognitionRef.current) {
       try { recognitionRef.current.abort() } catch {}
       recognitionRef.current = null
@@ -741,25 +764,31 @@ export default function Assistant({ t, lang, onNavigate, assistantContext, initi
             <div className="assistant-voice-provider-toggle" role="group" aria-label="Amharic Voice Provider" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
               <button
                 type="button"
-                className={`btn btn-xs ${voiceProvider === 'auto' ? 'btn-primary' : 'ghost'}`}
-                onClick={() => setVoiceProvider('auto')}
-                title="Microsoft መቅደስ Online (Natural Female Voice, Edge/Cloud)"
+                className={`btn btn-xs ${onlineVoiceConsentGranted ? 'btn-primary' : 'ghost'}`}
+                onClick={() => {
+                  const consented = requestOnlineVoiceConsent(
+                    (message) => window.confirm(message),
+                    t('assistant.voice_cloud_consent') || 'This browser voice may send the text being spoken to a cloud speech provider. Continue only if you consent to sharing that response text for synthesis. Enable online voice?',
+                  )
+                  setOnlineVoiceConsentGranted(consented)
+                }}
+                title="Online speech sends response text to a cloud provider and requires your consent"
               >
-                🌐 መቅደስ Online
+                🌐 መቅደስ Online (consent)
               </button>
               <button
                 type="button"
-                className={`btn btn-xs ${voiceProvider === 'offline_mms' ? 'btn-primary' : 'ghost'}`}
-                onClick={() => setVoiceProvider('offline_mms')}
-                title="MMS Amharic (100% Offline Engine, Single Speaker)"
+                className={`btn btn-xs ${onlineVoiceConsentGranted ? 'ghost' : 'btn-primary'}`}
+                onClick={() => setOnlineVoiceConsentGranted(false)}
+                title="Uses a local Amharic voice if available, otherwise requires the local MMS model"
               >
-                🛡️ MMS Offline
+                🛡️ Local / MMS (if installed)
               </button>
             </div>
           )}
           {lang === 'om' && (
-            <span className="assistant-mode-pill pill-offline" title="facebook/mms-tts-orm (100% Offline CPU Engine, Single Speaker)">
-              🛡️ MMS Oromo (Offline)
+            <span className="assistant-mode-pill pill-offline" title="Offline speech is available only when the local Oromo MMS model is installed">
+              🛡️ MMS Oromo (if installed)
             </span>
           )}
           {lang === 'en' && (
@@ -856,7 +885,11 @@ export default function Assistant({ t, lang, onNavigate, assistantContext, initi
                     <span className="speaking-engine-badge" aria-live="polite">
                       {speakingEngine === 'preparing'
                         ? (lang === 'om' ? '⏳ Qophaa\'aa jira...' : lang === 'am' ? '⏳ በመዘጋጀት ላይ...' : '⏳ Preparing...')
-                        : (speakingEngine === 'offline_mms' ? '🛡️ MMS VITS' : '🔊 Voice')}
+                        : (speakingEngine === 'offline_mms'
+                          ? '🛡️ MMS VITS'
+                          : speakingEngine === 'browser_online'
+                            ? '🌐 Online voice'
+                            : '🔊 Local voice')}
                     </span>
                   )}
                 </div>
@@ -971,6 +1004,12 @@ export default function Assistant({ t, lang, onNavigate, assistantContext, initi
           </div>
         )}
 
+        {voiceDraft && (
+          <div className="assistant-voice-alert small" role="status">
+            <span>ℹ️ {t('assistant.voice_local_only_draft') || 'This voice transcript stays on this device. Sending it uses local knowledge only; clear it and type a new message to use the normal assistant flow.'}</span>
+          </div>
+        )}
+
         {/* Listening Active Bar */}
         {isListening && (
           <div className="assistant-listening-bar" role="status" aria-live="polite">
@@ -1016,7 +1055,10 @@ export default function Assistant({ t, lang, onNavigate, assistantContext, initi
               className="assistant-text-input"
               placeholder={t('assistant.input_placeholder') || 'Ask about links, passwords, Telebirr scams, or reporting...'}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                setInput(e.target.value)
+                if (!e.target.value.trim()) setVoiceDraft(false)
+              }}
               disabled={loading}
               maxLength={1000}
               autoComplete="off"
@@ -1053,4 +1095,3 @@ export default function Assistant({ t, lang, onNavigate, assistantContext, initi
     </div>
   )
 }
-

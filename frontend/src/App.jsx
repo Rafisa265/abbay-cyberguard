@@ -1,21 +1,22 @@
-import { Component, useEffect, useMemo, useState } from 'react'
+import { Component, lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { LANGS, REVIEWED, makeT, initialLang, saveLang } from './i18n.js'
 import { getMe, logoutUser, saveProgress } from './lib/api.js'
 import { getJourneyProgress, getRank, saveJourneyProgress, isMissionCompleted } from './lib/journey.js'
-import M1 from './components/M1.jsx'
-import M2 from './components/M2.jsx'
-import M3 from './components/M3.jsx'
 import M4 from './components/M4.jsx'
-import Learn from './components/Learn.jsx'
-import Journey from './components/Journey.jsx'
-import Account from './components/Account.jsx'
+import AcademyCertificateVerification from './components/AcademyCertificateVerification.jsx'
 import NotificationCenter from './components/NotificationCenter.jsx'
 import HeaderAccountMenu from './components/HeaderAccountMenu.jsx'
-import DailyChallenge from './components/DailyChallenge.jsx'
-import Arena from './components/Arena.jsx'
-import CyberBattleGame from './components/CyberBattleGame.jsx'
-import Assistant from './components/Assistant.jsx'
-import DeviceSecurityCheck from './components/DeviceSecurityCheck.jsx'
+const M1 = lazy(() => import('./components/M1.jsx'))
+const M2 = lazy(() => import('./components/M2.jsx'))
+const M3 = lazy(() => import('./components/M3.jsx'))
+const Learn = lazy(() => import('./components/Learn.jsx'))
+const Journey = lazy(() => import('./components/Journey.jsx'))
+const Account = lazy(() => import('./components/Account.jsx'))
+const DailyChallenge = lazy(() => import('./components/DailyChallenge.jsx'))
+const Arena = lazy(() => import('./components/Arena.jsx'))
+const CyberBattleGame = lazy(() => import('./components/CyberBattleGame.jsx'))
+const Assistant = lazy(() => import('./components/Assistant.jsx'))
+const DeviceSecurityCheck = lazy(() => import('./components/DeviceSecurityCheck.jsx'))
 import {
   AbbayLogo,
   UserRoundIcon,
@@ -97,7 +98,7 @@ class RouteErrorBoundary extends Component {
 }
 
 const TOOL_ROUTES = ['m1', 'm2', 'm3', 'm4', 'device', 'learn', 'journey']
-const ALL_ROUTES = [...TOOL_ROUTES, 'account', 'daily', 'arena', 'game', 'assistant']
+const ALL_ROUTES = [...TOOL_ROUTES, 'account', 'daily', 'arena', 'game', 'assistant', 'verify']
 const VIEWS = { m1: M1, m2: M2, m3: M3, m4: M4, device: DeviceSecurityCheck, learn: Learn, journey: Journey, account: Account, daily: DailyChallenge, arena: Arena, game: CyberBattleGame, assistant: Assistant }
 
 const MODULE_META = {
@@ -193,6 +194,7 @@ const parseHashState = () => {
 
   let context = null
   let initialQuery = null
+  let certificateId = null
   if (queryPart) {
     try {
       const params = new URLSearchParams(queryPart)
@@ -204,11 +206,12 @@ const parseHashState = () => {
       if (rawQ) {
         initialQuery = rawQ.trim()
       }
+      certificateId = params.get('certificateId')
     } catch {
       // safe fallback
     }
   }
-  return { route, context, initialQuery }
+  return { route, context, initialQuery, certificateId }
 }
 
 const routeFromHash = () => parseHashState().route
@@ -218,6 +221,7 @@ export default function App() {
   const [route, setRoute] = useState(() => parseHashState().route)
   const [assistantContext, setAssistantContext] = useState(() => parseHashState().context)
   const [assistantInitialQuery, setAssistantInitialQuery] = useState(() => parseHashState().initialQuery)
+  const [verificationCertificateId, setVerificationCertificateId] = useState(() => parseHashState().certificateId)
   const [user, setUser] = useState(null)
 
   const t = useMemo(() => makeT(lang, (l, k) => {
@@ -263,6 +267,7 @@ export default function App() {
       setRoute(parsed.route)
       setAssistantContext(parsed.context)
       setAssistantInitialQuery(parsed.initialQuery)
+      setVerificationCertificateId(parsed.certificateId)
       setMobileNavOpen(false)
     }
     window.addEventListener('hashchange', h)
@@ -336,6 +341,7 @@ export default function App() {
       setRoute(parsed.route)
       setAssistantContext(parsed.context)
       setAssistantInitialQuery(parsed.initialQuery)
+      setVerificationCertificateId(parsed.certificateId)
     } else {
       window.location.hash = targetHash
     }
@@ -1273,18 +1279,26 @@ export default function App() {
               </div>
             </footer>
           </div>
+        ) : route === 'verify' ? (
+          <AcademyCertificateVerification
+            certificateId={verificationCertificateId}
+            language={lang}
+            t={t}
+          />
         ) : (
           <RouteErrorBoundary key={route} t={t}>
-            <View
-              t={t}
-              lang={lang}
-              user={user}
-              setUser={setUser}
-              onNavigate={handleNavigate}
-              onSyncProgress={handleSyncProgress}
-              assistantContext={assistantContext}
-              initialQuery={assistantInitialQuery}
-            />
+            <Suspense fallback={<div className="card" role="status">{t('c.loading') || 'Loading…'}</div>}>
+              <View
+                t={t}
+                lang={lang}
+                user={user}
+                setUser={setUser}
+                onNavigate={handleNavigate}
+                onSyncProgress={handleSyncProgress}
+                assistantContext={assistantContext}
+                initialQuery={assistantInitialQuery}
+              />
+            </Suspense>
           </RouteErrorBoundary>
         )}
       </main>

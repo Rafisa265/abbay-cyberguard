@@ -63,9 +63,55 @@ def test_production_database_url_requires_tls():
     )
 
 
+def test_production_origins_reject_wildcards_and_keep_exact_origins():
+    with pytest.raises(ValueError, match="Wildcard origins"):
+        config.build_allowed_origins(
+            "production",
+            8000,
+            "https://app.example.com,https://*.example.com",
+        )
+
+    origins = config.build_allowed_origins(
+        "production",
+        8000,
+        "https://app.example.com",
+    )
+    assert "https://abbay-cyberguard.pages.dev" in origins
+    assert "https://app.example.com" in origins
+    assert "https://app.example.com.attacker.example" not in origins
+    assert "http://localhost:5173" not in origins
+
+
+def test_development_origins_reject_wildcards_with_credentials():
+    with pytest.raises(ValueError, match="Wildcard origins"):
+        config.build_allowed_origins("development", 8000, "http://*.example.com")
+
+
+def test_development_origins_include_local_vite_origins():
+    origins = config.build_allowed_origins("development", 8000, "")
+    assert "http://localhost:5173" in origins
+    assert "https://abbay-cyberguard.pages.dev" in origins
+
+
+def test_origins_must_not_include_paths():
+    with pytest.raises(ValueError, match="exact http\\(s\\) origins"):
+        config.build_allowed_origins("production", 8000, "https://app.example.com/path")
+
+
 def test_origin():
     assert c.post("/api/v1/m4/demo", json={"scenario_id": "DS-A"}, headers={"Origin": "https://evil.example"}).status_code == 403
     assert c.post("/api/v1/m4/demo", json={"scenario_id": "DS-A"}, headers={"Origin": "http://127.0.0.1:8000"}).status_code == 200
+    pages_origin = "https://abbay-cyberguard.pages.dev"
+    assert c.get("/api/v1/m4/scenarios", headers={"Origin": pages_origin}).status_code == 200
+    assert c.post("/api/v1/m4/demo", json={"scenario_id": "DS-A"}, headers={"Origin": pages_origin}).status_code == 200
+    preflight = c.options("/api/v1/device-security/status", headers={
+        "Origin": pages_origin,
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Private-Network": "true",
+    })
+    assert preflight.status_code == 204
+    assert preflight.headers["Access-Control-Allow-Private-Network"] == "true"
+    assert preflight.headers["Access-Control-Allow-Origin"] == pages_origin
 
 
 @pytest.mark.parametrize("ct", ["text/plain", "application/x-www-form-urlencoded", None])

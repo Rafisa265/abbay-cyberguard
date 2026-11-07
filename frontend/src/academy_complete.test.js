@@ -12,6 +12,8 @@ import {
   markLessonSectionCompleted,
   recordSimulationChallenge,
   saveEarnedCertificate,
+  hasCertificateSyncConsent,
+  saveCertificateSyncConsent,
   resetAcademyProgress,
 } from './lib/academyStorage.js'
 import {
@@ -43,6 +45,18 @@ describe('ABBAY CYBER ACADEMY — Complete Architecture & Quality Suite', () => 
   beforeEach(() => {
     resetJourneyProgress()
     resetAcademyProgress()
+  })
+
+  it('keeps certificate synchronization off until explicit consent and persists the choice with Academy progress', () => {
+    expect(loadAcademyProgress().certificateSyncConsent).toBe(false)
+    expect(() => saveCertificateSyncConsent(true)).toThrow(/authenticated account/)
+    saveCertificateSyncConsent(true, 'account-a')
+    expect(loadAcademyProgress().certificateSyncConsent).toBe(true)
+    expect(hasCertificateSyncConsent('account-a')).toBe(true)
+    expect(hasCertificateSyncConsent('account-b')).toBe(false)
+    saveCertificateSyncConsent(false, 'account-a')
+    expect(loadAcademyProgress().certificateSyncConsent).toBe(false)
+    expect(hasCertificateSyncConsent('account-a')).toBe(false)
   })
 
   describe('1. Multi-Stage Curriculum Architecture (Levels 1–16+)', () => {
@@ -226,6 +240,7 @@ describe('ABBAY CYBER ACADEMY — Complete Architecture & Quality Suite', () => 
       'learn.tab_quiz',
       'learn.tab_dashboard',
       'academy.guest_persistent_badge',
+      'academy.cert.consent_revoke',
       'academy.stage1.title',
       'academy.stage2.title',
       'academy.stage3.title',

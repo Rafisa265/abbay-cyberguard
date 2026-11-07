@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   TOPICS,
   LEVELS,
@@ -7,7 +7,14 @@ import {
   evaluateLevel,
   isCorrect,
 } from '../lib/quiz.js'
-import { getProgress, saveProgress } from '../lib/api.js'
+import {
+  getAcademyCertificateStatus,
+  getProgress,
+  issueAcademyCertificate,
+  saveProgress,
+  startAcademyLevelAttempt,
+  submitAcademyLevelAttempt,
+} from '../lib/api.js'
 import { recordQuizLevelPassed, getUnifiedLearningProgress } from '../lib/learningProgress.js'
 import { ACADEMY_TOPIC_ARTWORK_MAP } from '../lib/artworkManager.js'
 import {
@@ -21,8 +28,9 @@ import {
   saveQuizAnswers,
   markLessonSectionCompleted,
   recordSimulationChallenge,
-  saveEarnedCertificate,
   resetAcademyProgress,
+  hasCertificateSyncConsent,
+  saveCertificateSyncConsent,
 } from '../lib/academyStorage.js'
 import {
   calculateTopicMastery,
@@ -35,7 +43,6 @@ import AcademyCertificateModal from './AcademyCertificateModal.jsx'
 
 const OPTION_LETTERS = ['A', 'B', 'C']
 const LESSON_SECTIONS = ['overview', 'how', 'examples', 'warnings', 'actions', 'recap']
-
 function renderStructuredLessonText(text) {
   if (!text) return null
   const paragraphs = text.split('\n\n').filter(Boolean)
@@ -86,13 +93,50 @@ export default function Learn({ t, user, onNavigate }) {
   // Academy Storage State
   const [academyProgress, setAcademyProgress] = useState(() => loadAcademyProgress())
   const [activeCertificate, setActiveCertificate] = useState(null)
+  const [certificateStatus, setCertificateStatus] = useState(null)
+  const [certificateSyncError, setCertificateSyncError] = useState('')
+  const [certificateSyncEnabled, setCertificateSyncEnabled] = useState(
+    () => hasCertificateSyncConsent(user?.id),
+  )
+  const [serverAttempt, setServerAttempt] = useState(null)
+  const [serverAttemptAnswers, setServerAttemptAnswers] = useState({})
+  const [serverAttemptBusy, setServerAttemptBusy] = useState(false)
+  const certificateSyncEnabledRef = useRef(certificateSyncEnabled)
+  const certificateSyncUserIdRef = useRef(user?.id == null ? null : String(user.id))
+  const certificateSyncRequests = useRef(new Set())
 
   // Curriculum Stage Inspection State
   const [selectedCurriculumStage, setSelectedCurriculumStage] = useState('stage_1')
   const [expandedCurriculumLevel, setExpandedCurriculumLevel] = useState(1)
 
+  const revokeCertificateSync = () => {
+    certificateSyncEnabledRef.current = false
+    certificateSyncRequests.current.forEach((controller) => controller.abort())
+    certificateSyncRequests.current.clear()
+    setServerAttempt(null)
+    setServerAttemptAnswers({})
+    const updated = saveCertificateSyncConsent(false, user?.id)
+    setAcademyProgress(updated)
+    setCertificateSyncEnabled(false)
+    setCertificateStatus(null)
+    setCertificateSyncError('')
+    setActiveCertificate(null)
+  }
+
   // Load progress from local storage and optional cloud sync on mount
   useEffect(() => {
+    const accountId = user?.id == null ? null : String(user.id)
+    const accountHasConsent = hasCertificateSyncConsent(accountId)
+    if (certificateSyncUserIdRef.current !== accountId) {
+      certificateSyncRequests.current.forEach((controller) => controller.abort())
+      certificateSyncRequests.current.clear()
+      certificateSyncUserIdRef.current = accountId
+      setServerAttempt(null)
+      setServerAttemptAnswers({})
+    }
+    certificateSyncEnabledRef.current = accountHasConsent
+    setCertificateSyncEnabled(accountHasConsent)
+
     const stored = loadAcademyProgress()
     setAcademyProgress(stored)
 
@@ -132,7 +176,7 @@ export default function Learn({ t, user, onNavigate }) {
     }
   }, [user])
 
-  // Track section reading completion in academy storage
+  // Local navigation is not evidence that lesson content was read.
   useEffect(() => {
     const currentTopicKey = TOPICS[activeLesson]
     if (currentTopicKey && activeSection) {
@@ -140,6 +184,36 @@ export default function Learn({ t, user, onNavigate }) {
       setAcademyProgress(updated)
     }
   }, [activeLesson, activeSection])
+
+  useEffect(() => {
+    let active = true
+    if (!user || !hasCertificateSyncConsent(user.id)) {
+      setCertificateStatus(null)
+      return () => { active = false }
+    }
+
+    const controller = new AbortController()
+    certificateSyncRequests.current.add(controller)
+    getAcademyCertificateStatus({ signal: controller.signal })
+      .then((status) => {
+        if (active && certificateSyncEnabledRef.current &&
+            certificateSyncUserIdRef.current === String(user.id)) {
+          setCertificateStatus(status)
+          setCertificateSyncError('')
+        }
+      })
+      .catch(() => {
+        if (active && certificateSyncEnabledRef.current &&
+            certificateSyncUserIdRef.current === String(user.id)) {
+          setCertificateSyncError(t('academy.cert.sync_failed') || 'Account progress could not be synchronized. Try again later.')
+        }
+      })
+    return () => {
+      active = false
+      controller.abort()
+      certificateSyncRequests.current.delete(controller)
+    }
+  }, [user, certificateSyncEnabled, t])
 
   // Automation hook for certificate modal verification
   useEffect(() => {
@@ -231,6 +305,8 @@ export default function Learn({ t, user, onNavigate }) {
   const handleSelectLevel = (lvlNum) => {
     if (!unlockedLevels.includes(lvlNum)) return
     setActiveLevel(lvlNum)
+    setServerAttempt(null)
+    setServerAttemptAnswers({})
     setCurrentQ(0)
     setShowResults(false)
     setShowReview(false)
@@ -251,6 +327,8 @@ export default function Learn({ t, user, onNavigate }) {
   const handleAdvanceNextLevel = () => {
     if (activeLevel < LEVELS.length && unlockedLevels.includes(activeLevel + 1)) {
       setActiveLevel(activeLevel + 1)
+      setServerAttempt(null)
+      setServerAttemptAnswers({})
       setCurrentQ(0)
       setShowResults(false)
       setShowReview(false)
@@ -266,9 +344,16 @@ export default function Learn({ t, user, onNavigate }) {
     setShowResults(false)
     setShowReview(false)
     setShowConfirmReset(false)
+    setServerAttempt(null)
+    setServerAttemptAnswers({})
     setQuickCheckAnswers({})
     resetAcademyProgress()
     setAcademyProgress(loadAcademyProgress())
+    certificateSyncEnabledRef.current = false
+    certificateSyncRequests.current.forEach((controller) => controller.abort())
+    certificateSyncRequests.current.clear()
+    setCertificateSyncEnabled(false)
+    setCertificateStatus(null)
   }
 
   const handleJumpToLesson = (topicKey) => {
@@ -292,7 +377,114 @@ export default function Learn({ t, user, onNavigate }) {
   }
 
   const handleOpenCertificate = (certData) => {
-    setActiveCertificate(certData)
+    if (!user) {
+      setCertificateSyncError(t('academy.cert.login_required') || 'Sign in to issue and verify an Academy certificate.')
+      return
+    }
+    if (!certificateSyncEnabledRef.current ||
+        certificateSyncUserIdRef.current !== String(user.id)) {
+      setCertificateSyncError(t('academy.cert.consent_required') || 'Enable account-backed certificate progress first.')
+      return
+    }
+    const storedCertificate = certificateStatus?.certificates?.find(
+      (certificate) => certificate.level_num === certData.levelNum,
+    )
+    setActiveCertificate({
+      ...certData,
+      recipientName: storedCertificate?.recipient_name || user.display_name || '',
+      certificate: storedCertificate || null,
+    })
+  }
+
+  const handleIssueCertificate = async ({ levelNum, recipientName, language }) => {
+    if (!user || !certificateSyncEnabledRef.current ||
+        certificateSyncUserIdRef.current !== String(user.id)) {
+      throw new Error(t('academy.cert.consent_required') || 'Enable account-backed certificate progress first.')
+    }
+    const controller = new AbortController()
+    certificateSyncRequests.current.add(controller)
+    try {
+      const certificate = await issueAcademyCertificate({
+        levelNum,
+        recipientName,
+        language,
+        signal: controller.signal,
+      })
+      if (controller.signal.aborted) return certificate
+      const status = await getAcademyCertificateStatus({ signal: controller.signal })
+      if (!controller.signal.aborted) {
+        setCertificateStatus(status)
+        setCertificateSyncError('')
+      }
+      return certificate
+    } finally {
+      certificateSyncRequests.current.delete(controller)
+    }
+  }
+
+  const handleEnableCertificateSync = () => {
+    if (user?.id === null || user?.id === undefined) return
+    const updated = saveCertificateSyncConsent(true, user.id)
+    setAcademyProgress(updated)
+    certificateSyncEnabledRef.current = true
+    setCertificateSyncEnabled(true)
+    setCertificateSyncError('')
+    getAcademyCertificateStatus()
+      .then((status) => {
+        if (status) setCertificateStatus(status)
+      })
+      .catch(() => {
+        if (certificateSyncEnabledRef.current &&
+            certificateSyncUserIdRef.current === String(user?.id)) {
+          setCertificateSyncError(t('academy.cert.sync_failed') || 'Account progress could not be synchronized. Try again later.')
+        }
+      })
+  }
+
+  const handleStartServerAssessment = async () => {
+    if (!user || !certificateSyncEnabledRef.current) {
+      setCertificateSyncError(t('academy.cert.consent_required') || 'Enable account-backed certificate progress first.')
+      return
+    }
+    setServerAttemptBusy(true)
+    setServerAttemptAnswers({})
+    try {
+      const attempt = await startAcademyLevelAttempt({ levelNum: activeLevel })
+      setServerAttempt(attempt)
+      setCertificateSyncError('')
+    } catch (error) {
+      setServerAttempt(null)
+      setCertificateSyncError(error.code || t('academy.cert.sync_failed') || 'Assessment could not be started.')
+    } finally {
+      setServerAttemptBusy(false)
+    }
+  }
+
+  const handleSubmitServerAssessment = async () => {
+    if (!serverAttempt || serverAttemptBusy) return
+    setServerAttemptBusy(true)
+    try {
+      const result = await submitAcademyLevelAttempt({
+        attemptId: serverAttempt.attempt_id,
+        answers: serverAttemptAnswers,
+      })
+      setServerAttempt(null)
+      setServerAttemptAnswers({})
+      const status = await getAcademyCertificateStatus()
+      setCertificateStatus(status)
+      setCertificateSyncError(result.passed
+        ? ''
+        : (t('academy.cert.assessment_failed') || 'Assessment not passed. Start a new attempt to try again.'))
+    } catch (error) {
+      if (['ATTEMPT_EXPIRED', 'ATTEMPT_ALREADY_SUBMITTED', 'LEVEL_ALREADY_VERIFIED']
+        .includes(error.code)) {
+        setServerAttempt(null)
+        setServerAttemptAnswers({})
+      }
+      setCertificateSyncError(error.code || t('academy.cert.sync_failed') || 'Assessment could not be submitted.')
+    } finally {
+      setServerAttemptBusy(false)
+    }
   }
 
   const handleToggleAdaptiveOptOut = () => {
@@ -306,10 +498,18 @@ export default function Learn({ t, user, onNavigate }) {
   const currentTopic = TOPICS[activeLesson]
   const currentQC = QUICK_CHECKS[currentTopic]
   const currentQCChoice = quickCheckAnswers[currentTopic]
+  const isMilestoneLevel = [1, 3, 6].includes(activeLevel)
+  const activeCertificateRecord = certificateStatus?.certificates?.find(
+    (certificate) => certificate.level_num === activeLevel,
+  )
+  const canIssueActiveCertificate = Boolean(
+    user && (
+      certificateStatus?.eligible_levels?.includes(activeLevel)
+      || activeCertificateRecord
+    ),
+  )
 
   // Certificate eligibility for active level
-  const isEligibleForCert = (lvl) => completedLevels[lvl]?.passed
-
   return (
     <section className="module-container abbay-academy-container" style={{ paddingBottom: '40px' }}>
       {/* Platform Header with Brand Consistency */}
@@ -323,6 +523,30 @@ export default function Learn({ t, user, onNavigate }) {
               Learn. Protect. Empower.
             </span>
           </div>
+          {certificateSyncError && (
+            <p className="msg error" role="status">{certificateSyncError}</p>
+          )}
+          {user && !certificateSyncEnabled && (
+            <div className="academy-certificate-consent" role="group" aria-labelledby="academy-certificate-consent-title">
+              <div>
+                <strong id="academy-certificate-consent-title">
+                  {t('academy.cert.consent_title') || 'Optional account-backed certificates'}
+                </strong>
+                <p>{t('academy.cert.consent_description') || 'If enabled, server-generated assessment attempts and results are saved to your account to verify certificate eligibility. Lesson visits are not verified. Your certificate name is sent only when you issue one; public verification never shows your name.'}</p>
+              </div>
+              <button type="button" className="btn primary" onClick={handleEnableCertificateSync}>
+                {t('academy.cert.consent_enable') || 'Enable certificate progress sync'}
+              </button>
+            </div>
+          )}
+          {user && certificateSyncEnabled && (
+            <div className="academy-certificate-sync-enabled" role="status">
+              <span>{t('academy.cert.consent_enabled') || 'Account-backed certificate progress is enabled on this device.'}</span>
+              <button type="button" className="btn ghost small" onClick={revokeCertificateSync}>
+                {t('academy.cert.consent_revoke') || 'Stop account sync'}
+              </button>
+            </div>
+          )}
           <h1 style={{ color: '#F8FAFC', margin: '4px 0 8px 0', fontSize: '1.85rem' }}>
             🎓 {t('learn.title')}
           </h1>
@@ -604,7 +828,7 @@ export default function Learn({ t, user, onNavigate }) {
                         {t(`learn.${lvl.id}.desc`)}
                       </p>
 
-                      {isMastered && (
+                      {isMastered && [1, 3, 6].includes(lvl.num) && (
                         <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span style={{ fontSize: '0.75rem', color: '#059669', fontWeight: 700 }}>
                             Score: {completedLevels[lvl.num].score}%
@@ -612,6 +836,10 @@ export default function Learn({ t, user, onNavigate }) {
                           <button
                             type="button"
                             className="btn btn-sm ghost"
+                            disabled={!user || !(
+                              certificateStatus?.eligible_levels?.includes(lvl.num)
+                              || certificateStatus?.certificates?.some((certificate) => certificate.level_num === lvl.num)
+                            )}
                             style={{ padding: '2px 8px', fontSize: '0.72rem', color: '#0284c7', borderColor: '#0284c7', fontWeight: 600 }}
                             onClick={(e) => {
                               e.stopPropagation()
@@ -1156,20 +1384,25 @@ export default function Learn({ t, user, onNavigate }) {
               </div>
 
               {/* Stage Certificate Eligibility Banner */}
-              {levelEval.passed && (
+              {levelEval.passed && isMilestoneLevel && (
                 <div style={{ background: '#0B172A', border: '1px solid #00C2D7', borderRadius: '8px', padding: '14px', margin: '14px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                   <div>
                     <strong style={{ color: '#00C2D7', display: 'block', fontSize: '0.95rem' }}>
-                      🎓 Milestone Certificate Ready!
+                      🎓 {canIssueActiveCertificate
+                        ? (t('academy.cert.ready') || 'Milestone certificate ready')
+                        : (t('academy.cert.requirements_pending') || 'Certificate requirements pending')}
                     </strong>
                     <span style={{ color: '#CBD5E1', fontSize: '0.82rem' }}>
-                      You have validated Level {activeLevel} competency. Claim your educational completion certificate.
+                      {canIssueActiveCertificate
+                        ? (t('academy.cert.ready_description') || `Level ${activeLevel} assessment milestone is verified. Issue your certificate.`)
+                        : (t('academy.cert.requirements_description') || 'Pass this level and all prerequisite server assessments. Lesson reading is not verified.')}
                     </span>
                   </div>
                   <button
                     type="button"
                     className="btn btn-sm"
                     style={{ background: '#00C2D7', color: '#070D18', fontWeight: 700 }}
+                    disabled={!canIssueActiveCertificate}
                     onClick={() => handleOpenCertificate({
                       stageId: 'stage_1',
                       levelNum: activeLevel,
@@ -1181,6 +1414,55 @@ export default function Learn({ t, user, onNavigate }) {
                   >
                     View & Print Certificate 🎓
                   </button>
+                  {user && certificateSyncEnabled && !certificateStatus?.verified_levels?.includes(activeLevel) && (
+                    <div className="academy-server-assessment" style={{ flexBasis: '100%', marginTop: '12px' }}>
+                      {!serverAttempt ? (
+                        <button
+                          type="button"
+                          className="btn"
+                          disabled={serverAttemptBusy}
+                          onClick={handleStartServerAssessment}
+                        >
+                          {serverAttemptBusy
+                            ? (t('academy.cert.assessment_starting') || 'Starting assessment…')
+                            : `${t('academy.cert.assessment_start') || 'Start server-verified assessment'} — Level ${activeLevel}`}
+                        </button>
+                      ) : (
+                        <div>
+                          {serverAttempt.questions.map((question, index) => (
+                            <fieldset key={question.id} style={{ border: '1px solid #334155', margin: '10px 0', padding: '10px' }}>
+                              <legend style={{ color: '#F8FAFC' }}>{index + 1}. {question.prompt}</legend>
+                              {question.options.map((option) => (
+                                <label key={option.id} style={{ display: 'block', margin: '6px 0', color: '#CBD5E1' }}>
+                                  <input
+                                    type="radio"
+                                    name={`assessment-${question.id}`}
+                                    checked={serverAttemptAnswers[question.id] === option.id}
+                                    onChange={() => setServerAttemptAnswers((previous) => ({
+                                      ...previous,
+                                      [question.id]: option.id,
+                                    }))}
+                                  />{' '}
+                                  {option.text}
+                                </label>
+                              ))}
+                            </fieldset>
+                          ))}
+                          <button
+                            type="button"
+                            className="btn"
+                            disabled={serverAttemptBusy ||
+                              Object.keys(serverAttemptAnswers).length !== serverAttempt.questions.length}
+                            onClick={handleSubmitServerAssessment}
+                          >
+                            {serverAttemptBusy
+                              ? (t('academy.cert.assessment_submitting') || 'Submitting assessment…')
+                              : (t('academy.cert.assessment_submit') || 'Submit assessment')}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1317,6 +1599,7 @@ export default function Learn({ t, user, onNavigate }) {
       {academyTab === 'dashboard' && (
         <AcademyDashboard
           academyProgress={academyProgress}
+          certificateStatus={certificateStatus}
           mastery={mastery}
           recommendations={recommendations}
           revisionQueue={revisionQueue}
@@ -1332,6 +1615,8 @@ export default function Learn({ t, user, onNavigate }) {
         <AcademyCertificateModal
           certData={activeCertificate}
           onClose={() => setActiveCertificate(null)}
+          onIssue={handleIssueCertificate}
+          language={lang}
           t={t}
         />
       )}
