@@ -6,7 +6,7 @@ Strict offline-first processing:
 - English ('en') offline STT via whisper.cpp (ggml-small-q5_1.bin).
 - Amharic ('am') offline STT via b1n1yam/whisper-small-am HuggingFace fine-tune
   (Apache-2.0), run in an isolated subprocess using amharic_stt_runner.py.
-- Afaan Oromoo ('om') is explicitly unsupported offline (STT_UNSUPPORTED_OFFLINE).
+- Afaan Oromoo ('om') uses multilingual Whisper when the local Whisper runtime and model are available; accuracy is not guaranteed.
 - Zero audio or transcript persistence; ephemeral files removed immediately.
 - Strict concurrency admission control (single worker process execution).
 - Bounded memory buffers and streaming subprocess stderr drain.
@@ -147,6 +147,16 @@ class SynthesizeRequest(BaseModel):
     language: str = Field(default="en", description="Language code: 'en', 'am', or 'om'")
 
 
+def cleanup_voice_temp_dir(temp_dir: str | None) -> None:
+    if not temp_dir:
+        return
+    try:
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
+    except OSError:
+        log.error("event=voice_temp_cleanup outcome=failed")
+
+
 def get_voice_status() -> dict:
     cli_exists = config.WHISPER_CLI_PATH.is_file()
     model_exists = config.WHISPER_MODEL_PATH.is_file()
@@ -162,15 +172,15 @@ def get_voice_status() -> dict:
 
     return {
         "stt_available": en_available or am_available or om_stt_available,
-        "tts_available": True,
+        "tts_available": amharic_tts_available or oromo_tts_available,
         "runtime": {
             "en": "whisper.cpp",
             "am": "transformers/whisper-small-am",
             "om": "whisper.cpp",
         },
         "tts_runtime": {
-            "en": "browser_native",
-            "am": "transformers/vits-mms" if amharic_tts_available else "browser_fallback",
+            "en": "browser_local_only",
+            "am": "transformers/vits-mms" if amharic_tts_available else "unavailable",
             "om": "transformers/vits-mms" if oromo_tts_available else "unavailable",
         },
         "model_name": {
@@ -187,7 +197,7 @@ def get_voice_status() -> dict:
             "am": {
                 "supported": am_available or amharic_tts_available,
                 "stt": "offline" if am_available else "unavailable",
-                "tts": "offline" if amharic_tts_available else "browser_fallback",
+                "tts": "offline" if amharic_tts_available else "unavailable",
             },
             "om": {
                 "supported": om_stt_available or oromo_tts_available,
@@ -485,6 +495,5 @@ async def transcribe_audio(payload: TranscribeRequest):
             return {"transcript": transcript, "language": lang}
 
     finally:
-        if temp_dir and os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir, ignore_errors=True)
+        cleanup_voice_temp_dir(temp_dir)
         await admission_controller.release()

@@ -265,6 +265,7 @@ setup.bat
 start.bat
 ```
 Navigate to **http://127.0.0.1:8000** in your browser.
+For Windows Device Security from the hosted site, keep this local service running on the same PC and follow [the local inspection guide](./docs/device-security-local-service.md).
 
 ---
 

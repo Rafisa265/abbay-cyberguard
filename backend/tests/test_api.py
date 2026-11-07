@@ -114,6 +114,23 @@ def test_origin():
     assert preflight.headers["Access-Control-Allow-Origin"] == pages_origin
 
 
+def test_local_device_status_allows_exact_pages_origin_and_rejects_other_preflight_origins():
+    pages_origin = "https://abbay-cyberguard.pages.dev"
+    status = c.get("/api/v1/device-security/status", headers={"Origin": pages_origin})
+    assert status.status_code == 200
+    assert status.headers["Access-Control-Allow-Origin"] == pages_origin
+    assert status.headers["Access-Control-Allow-Credentials"] == "true"
+
+    rejected = c.options("/api/v1/device-security/status", headers={
+        "Origin": "https://evil.example",
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Private-Network": "true",
+    })
+    assert rejected.status_code == 403
+    assert "Access-Control-Allow-Origin" not in rejected.headers
+    assert "Access-Control-Allow-Private-Network" not in rejected.headers
+
+
 @pytest.mark.parametrize("ct", ["text/plain", "application/x-www-form-urlencoded", None])
 def test_content_type(ct):
     h = {"Content-Type": ct} if ct else {}

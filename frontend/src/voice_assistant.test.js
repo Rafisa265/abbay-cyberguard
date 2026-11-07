@@ -248,8 +248,10 @@ Check **this important link** [CBE Bank](https://cbe.com.et) immediately!
     const htmlAm = renderToString(React.createElement(Assistant, { t: tAm, lang: 'am' }))
     expect(htmlAm).toContain('assistant-mic-btn')
     expect(htmlAm).toContain('የድምጽ ግብዓት')
-    expect(htmlAm).toMatch(/class="btn btn-xs ghost"[^>]*title="Online speech sends response text/)
-    expect(htmlAm).toMatch(/class="btn btn-xs btn-primary"[^>]*title="Uses a local Amharic voice/)
+    expect(htmlAm).toContain(am['assistant.voice_online_description'])
+    expect(htmlAm).toContain(am['assistant.voice_local_description'])
+    expect(htmlOm).toContain(om['assistant.voice_oromo_offline_label'])
+    expect(htmlEn).toContain(en['assistant.voice_english_offline_label'])
   })
 
   it('9. UI Rendering: renders read response speaker button on assistant message rows', () => {

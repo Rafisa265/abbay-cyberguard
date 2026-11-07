@@ -3,7 +3,7 @@ Unit and integration tests for CyberShield Ethiopia Offline Voice Assistant API.
 
 Covers:
 - GET /api/v1/voice/status (runtime & model availability, language capabilities)
-- Afaan Oromoo honest non-support gate (STT_UNSUPPORTED_OFFLINE)
+- Afaan Oromoo multilingual Whisper availability and offline rejection behavior
 - Strict Base64 validation and canonical 44-byte WAV header validation
 - Duration boundary checks (min 0.3s, max 15.0s)
 - Request body limits (2 MiB for voice endpoint, 4096 bytes for standard endpoints)
@@ -82,6 +82,27 @@ def test_voice_status_endpoint():
     # Afaan Oromoo is supported offline via whisper.cpp
     assert data["languages"]["om"]["supported"] is True
     assert data["languages"]["om"]["stt"] == "offline"
+
+
+def test_voice_temp_cleanup_failure_is_observable_without_logging_path(caplog):
+    private_temp_path = "C:\\private\\voice\\recording"
+    with patch.object(routes_voice.os.path, "exists", return_value=True), patch.object(
+        routes_voice.shutil, "rmtree", side_effect=OSError("permission denied")
+    ):
+        routes_voice.cleanup_voice_temp_dir(private_temp_path)
+
+    assert "event=voice_temp_cleanup outcome=failed" in caplog.text
+    assert private_temp_path not in caplog.text
+
+
+def test_voice_status_does_not_claim_missing_backend_tts_models():
+    with patch.object(routes_voice.tts_service, "is_tts_model_available", return_value=False):
+        data = routes_voice.get_voice_status()
+
+    assert data["tts_available"] is False
+    assert data["tts_runtime"]["am"] == "unavailable"
+    assert data["tts_runtime"]["om"] == "unavailable"
+    assert data["languages"]["am"]["tts"] == "unavailable"
 
 
 def test_afaan_oromoo_offline_stt_not_rejected_as_unsupported():
@@ -461,6 +482,3 @@ def test_synthesize_oromo_offline():
     assert len(wav_bytes) > 44
     assert wav_bytes[:4] == b"RIFF"
     assert wav_bytes[8:12] == b"WAVE"
-
-
-

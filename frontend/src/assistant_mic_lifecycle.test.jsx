@@ -182,9 +182,10 @@ describe('CyberShield Assistant — Full Amharic Microphone & Voice Lifecycle', 
       })
 
       expect(mockDoFetch).toHaveBeenCalledWith(
-        '/api/v1/voice/transcribe',
+        'http://127.0.0.1:8000/api/v1/voice/transcribe',
         expect.objectContaining({
           method: 'POST',
+          credentials: 'omit',
           body: JSON.stringify({
             audio_base64: 'UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=',
             language: 'om',
@@ -210,13 +211,12 @@ describe('CyberShield Assistant — Full Amharic Microphone & Voice Lifecycle', 
     expect(html).not.toContain('listening-pulse')
   })
 
-  it('5. UI Rendering in Afaan Oromoo: renders honest localized strings with capitalized "Browser"', () => {
+  it('5. UI Rendering in Afaan Oromoo: renders the localized assistant without claiming browser-based STT', () => {
     const html = renderToString(React.createElement(Assistant, { t: tOm, lang: 'om' }))
     expect(html).toContain('assistant-mic-btn')
     expect(html).toContain('Galtee Sagalee')
     expect(html).toContain('Gargaaraa AI ABBAY CYBERGUARD')
-    // Check localization keys
-    expect(om['assistant.voice_stt_unsupported_om']).toContain('Browser')
+    expect(om['assistant.voice_stt_unsupported_om']).toContain('Whisper')
   })
 
   it('6. Voice Synthesis & Text-to-Speech Error Handling: differentiates TTS missing voice from STT', () => {
@@ -231,7 +231,7 @@ describe('CyberShield Assistant — Full Amharic Microphone & Voice Lifecycle', 
       }
 
       const mockVoices = [
-        { name: 'Microsoft David', lang: 'en-US' },
+        { name: 'Microsoft David', lang: 'en-US', localService: true },
       ]
 
       // English has genuine voice

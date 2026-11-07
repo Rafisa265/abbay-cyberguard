@@ -62,6 +62,12 @@ export function formatLocalizedRating(rating, t = null) {
   return t?.(key) || rating.replace(/_/g, ' ')
 }
 
+function localizeStatus(status, t) {
+  const key = `device.status_${(status || '').toLowerCase().replace(/[^a-z0-9]/g, '_')}`
+  const localized = t(key)
+  return localized === key ? status : localized
+}
+
 // PDF Binary Assembler (Generates valid ISO 32000-1 / PDF-1.4 binary Blob)
 export function createPdfWithJpegPages(pages) {
   const parts = []
@@ -138,11 +144,14 @@ export function createStructuralDeviceSecurityPdf(result, language = 'en') {
   const dateStr = result?.scan_time ? new Date(result.scan_time).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)
   const overall = result?.overall_status || 'UNKNOWN'
   const metrics = result?.metrics || {}
+  const t = makeT(lang)
+  const status = localizeStatus(overall, t)
+  const rating = formatLocalizedRating(result?.overall_rating || overall, t)
 
   const safeLines = [
     title,
-    `Date: ${dateStr} | Target: ${target} | Status: ${overall}`,
-    `Metrics: Total=${metrics.total_checks || 0} PASS=${metrics.pass_count || 0} WARN=${metrics.warning_count || 0} FAIL=${metrics.fail_count || 0} NOT_CHECKED=${metrics.not_checked_count || 0}`,
+    `Date: ${dateStr} | Target: ${target} | Status: ${status} — ${rating}`,
+    `Metrics: ${t('device.pdf_metric_total')}=${metrics.total_checks || 0} ${t('device.status_pass')}=${metrics.pass_count || 0} ${t('device.status_warning')}=${metrics.warning_count || 0} ${t('device.status_fail')}=${metrics.fail_count || 0} ${t('device.status_not_supported')}=${metrics.not_supported_count || 0} ${t('device.status_not_checked')}=${metrics.not_checked_count || 0}`,
     '--------------------------------------------------------------------------------',
   ]
 
@@ -321,14 +330,19 @@ export function generateDeviceSecurityPdfBlob(result, options = {}) {
 
           ctx.fillStyle = statusColor
           ctx.font = `bold 22px ${fontSans}`
-          ctx.fillText(`STATUS: [${overall}] — ${localizedOverallRating}`, marginX + 24, curY + 44)
+          const localizedStatus = localizeStatus(overall, t)
+          ctx.fillText(`${L.statusLabel} ${localizedStatus} — ${localizedOverallRating}`, marginX + 24, curY + 44)
 
           curY += 94
 
           // Metrics Pills Row
           ctx.font = `bold 16px ${fontMono}`
           ctx.fillStyle = '#e2e8f0'
-          ctx.fillText(`${L.metricsLabel}  Total: ${metrics.total_checks || 0}  |  ✓ ${metrics.pass_count || 0} PASS  |  ⚠️ ${metrics.warning_count || 0} WARN  |  ✗ ${metrics.fail_count || 0} FAIL  |  🚫 ${metrics.not_supported_count || 0} NOT SUPPORTED  |  ❓ ${metrics.not_checked_count || 0} NOT CHECKED`, marginX, curY + 14)
+          ctx.fillText(
+            `${L.metricsLabel}  ${t('device.pdf_metric_total')}: ${metrics.total_checks || 0}  |  ✓ ${metrics.pass_count || 0} ${t('device.status_pass')}  |  ⚠️ ${metrics.warning_count || 0} ${t('device.status_warning')}  |  ✗ ${metrics.fail_count || 0} ${t('device.status_fail')}  |  🚫 ${metrics.not_supported_count || 0} ${t('device.status_not_supported')}  |  ❓ ${metrics.not_checked_count || 0} ${t('device.status_not_checked')}`,
+            marginX,
+            curY + 14
+          )
 
           curY += 46
         }

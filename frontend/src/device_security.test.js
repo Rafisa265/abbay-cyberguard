@@ -7,9 +7,119 @@ import { makeT } from './i18n.js'
 import en from './locales/en.js'
 import am from './locales/am.js'
 import om from './locales/om.js'
+import { getDeviceSecurityStatus, scanDeviceSecurity } from './lib/api.js'
 import { generateDeviceSecurityPdfBlob, formatReportForSpeech, localizeFinding, localizeLimitation, formatLocalizedRating } from './lib/deviceSecurityReport.js'
 
 describe('DeviceSecurityCheck Subsystem & UI Audit', () => {
+  it('checks only the local inspection service without sending cookies', async () => {
+    const originalWindow = global.window
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+    })
+
+    try {
+      global.window = { fetch: fetchMock }
+      const status = await getDeviceSecurityStatus()
+
+      expect(status.connected).toBe(false)
+      expect(status.status).toBe(403)
+      expect(status.error).toBe('HTTP_403')
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://127.0.0.1:8000/api/v1/device-security/status',
+        expect.objectContaining({
+          credentials: 'omit',
+          method: 'GET',
+          headers: {},
+          signal: expect.any(AbortSignal),
+        })
+      )
+    } finally {
+      global.window = originalWindow
+    }
+  })
+
+  it('reports a local service timeout without mislabeling it as an HTTP 502', async () => {
+    const originalWindow = global.window
+    const timeout = new Error('aborted')
+    timeout.name = 'AbortError'
+
+    try {
+      global.window = { fetch: vi.fn().mockRejectedValue(timeout) }
+      const status = await getDeviceSecurityStatus()
+      expect(status).toMatchObject({
+        connected: false,
+        status: 504,
+        error: 'LOCAL_SERVICE_TIMEOUT',
+      })
+    } finally {
+      global.window = originalWindow
+    }
+  })
+
+  it('reports browser-blocked local connections without falling back to a hosted API', async () => {
+    const originalWindow = global.window
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
+
+    try {
+      global.window = { fetch: fetchMock }
+      const status = await getDeviceSecurityStatus()
+      expect(status).toMatchObject({
+        connected: false,
+        status: 0,
+        error: 'LOCAL_SERVICE_UNREACHABLE',
+      })
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(fetchMock.mock.calls[0][0]).toBe('http://127.0.0.1:8000/api/v1/device-security/status')
+    } finally {
+      global.window = originalWindow
+    }
+  })
+
+  it('sends Windows scans only to the loopback helper without cookies', async () => {
+    const originalWindow = global.window
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, target: 'windows' }),
+    })
+
+    try {
+      global.window = { fetch: fetchMock }
+      await scanDeviceSecurity({ target: 'windows', consent: true, run_quick_scan: false })
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://127.0.0.1:8000/api/v1/device-security/scan',
+        expect.objectContaining({
+          credentials: 'omit',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target: 'windows', consent: true, run_quick_scan: false }),
+        })
+      )
+      expect(fetchMock.mock.calls[0][1].timeout).toBeUndefined()
+      expect(fetchMock.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal)
+      expect(fetchMock.mock.calls[0][0]).not.toContain('onrender.com')
+    } finally {
+      global.window = originalWindow
+    }
+  })
+
+  it('surfaces scan timeout separately and never retries against a hosted backend', async () => {
+    const originalWindow = global.window
+    const timeout = new Error('aborted')
+    timeout.name = 'AbortError'
+    const fetchMock = vi.fn().mockRejectedValue(timeout)
+
+    try {
+      global.window = { fetch: fetchMock }
+      await expect(scanDeviceSecurity({ target: 'windows', consent: true }))
+        .rejects.toMatchObject({ code: 'LOCAL_SERVICE_TIMEOUT', status: 504 })
+      expect(fetchMock).toHaveBeenCalledOnce()
+      expect(fetchMock.mock.calls[0][0]).toBe('http://127.0.0.1:8000/api/v1/device-security/scan')
+    } finally {
+      global.window = originalWindow
+    }
+  })
+
   it('renders DeviceSecurityCheck component in English without crashing', () => {
     const t = makeT('en')
     const html = renderToString(React.createElement(DeviceSecurityCheck, { t }))
@@ -17,7 +127,7 @@ describe('DeviceSecurityCheck Subsystem & UI Audit', () => {
     expect(html).toContain('Device Security Check')
     expect(html).toContain('100% On-Device / Zero Telemetry')
     expect(html).toContain('Windows Host Security')
-    expect(html).toContain('Android Mobile Check')
+    expect(html).toContain('Android Browser-Only Check')
     expect(html).toContain('I authorize ABBAY CYBERGUARD to inspect local security configuration')
   })
 
@@ -28,7 +138,7 @@ describe('DeviceSecurityCheck Subsystem & UI Audit', () => {
     expect(html).toContain('የመሳሪያ ደህንነት ፍተሻ እና የመከላከያ ግምገማ')
     expect(html).toContain('100% በመሳሪያ ላይ / ምንም የውጭ ግንኙነት የሌለው')
     expect(html).toContain('የWindows አስተናጋጅ ደህንነት')
-    expect(html).toContain('የአንድሮይድ ተንቀሳቃሽ ስልክ ፍተሻ')
+    expect(html).toContain('የአንድሮይድ አሳሽ ብቻ ፍተሻ')
     expect(html).toContain('ABBAY CYBERGUARD')
   })
 
@@ -39,7 +149,7 @@ describe('DeviceSecurityCheck Subsystem & UI Audit', () => {
     expect(html).toContain("Sakatta&#x27;iinsa Nageenya Meeshaa fi Madaallii Ittisaa")
     expect(html).toContain('100% Meeshaa Irratti / Ergaa Alaa Malee')
     expect(html).toContain('Nageenya Meeshaa Windows')
-    expect(html).toContain("Sakatta&#x27;iinsa Moobaayila Android")
+    expect(html).toContain("Sakatta&#x27;iinsa Android, Browser Qofaan")
     expect(html).toContain("ABBAY CYBERGUARD qindaa&#x27;ina nageenya naannoo akka qoratu nan hayyama")
   })
 
@@ -49,6 +159,10 @@ describe('DeviceSecurityCheck Subsystem & UI Audit', () => {
       'nav.device_security',
       'device.title',
       'device.desc',
+      'device.backend_unreachable_title',
+      'device.backend_unreachable',
+      'device.backend_timeout_title',
+      'device.backend_timeout',
       'home.device',
       'home.tool_btn.device',
     ]

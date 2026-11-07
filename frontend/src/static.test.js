@@ -19,13 +19,23 @@ describe('static privacy/safety checks (SR-09, FR-13, FR-26)', () => {
       expect(s).not.toMatch(/Math\.random\(/); expect(s).not.toMatch(/dangerouslySetInnerHTML|innerHTML|eval\(/); expect(s).not.toMatch(/m4\/live/i)
     }
   })
-  it('storage use is limited to the language code and offline journey progress (SR-09, FR-26)', () => {
+  it('storage use is limited to language, journey progress, and generic device alert metadata (SR-09, FR-26)', () => {
     for (const f of src) {
       const s = readFileSync(f, 'utf8')
-      if (!f.endsWith('i18n.js') && !f.endsWith('journey.js')) {
+      if (!f.endsWith('i18n.js') && !f.endsWith('journey.js') && !f.endsWith('DeviceSecurityCheck.jsx')) {
         expect(s).not.toMatch(/localStorage|sessionStorage|indexedDB|document\.cookie/)
       }
     }
+    const deviceSecurityCode = readFileSync('src/components/DeviceSecurityCheck.jsx', 'utf8')
+    expect(deviceSecurityCode).toContain("const ALERT_HISTORY_STORAGE_KEY = 'abbay-device-security-alerts-v1'")
+    expect(deviceSecurityCode).toContain("const ALERT_SETTINGS_STORAGE_KEY = 'abbay-device-security-notifications-v1'")
+    const storageKeys = [...deviceSecurityCode.matchAll(/localStorage\.(?:getItem|setItem)\((\w+)/g)]
+      .map((match) => match[1])
+    expect(storageKeys.length).toBeGreaterThan(0)
+    expect(storageKeys.every((key) => (
+      key === 'ALERT_HISTORY_STORAGE_KEY' || key === 'ALERT_SETTINGS_STORAGE_KEY'
+    ))).toBe(true)
+    expect(deviceSecurityCode).toContain('createDeviceSecurityAlert')
     expect(readFileSync('src/i18n.js', 'utf8').match(/localStorage\.\w+\('([^']+)'/g).every((m) => m.includes("'lang'"))).toBe(true)
     const journeyCode = readFileSync('src/lib/journey.js', 'utf8')
     expect(journeyCode).toMatch(/JOURNEY_STORAGE_KEY\s*=\s*'cybershield_journey_progress'/)

@@ -1,20 +1,79 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { getDeviceSecurityStatus, scanDeviceSecurity, synthesizeSpeechOffline } from '../lib/api.js'
 import { generateDeviceSecurityPdfBlob, formatReportForSpeech, localizeFinding, localizeLimitation, formatLocalizedRating } from '../lib/deviceSecurityReport.js'
+import { inspectAndroidBrowserEnvironment, isAndroidBrowser } from '../lib/androidBrowserAssessment.js'
+import {
+  createDeviceSecurityAlert,
+  evaluateLocalServiceHealth,
+  requestDeviceSecurityNotificationPermission,
+} from '../lib/deviceSecurityNotifications.js'
+
+const ALERT_HISTORY_STORAGE_KEY = 'abbay-device-security-alerts-v1'
+const ALERT_SETTINGS_STORAGE_KEY = 'abbay-device-security-notifications-v1'
+const ALLOWED_ALERT_KINDS = new Set([
+  'service_unavailable',
+  'service_repeated_failures',
+  'service_recovered',
+  'assessment_critical',
+  'assessment_warnings',
+])
+
+function readStoredAlerts() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(ALERT_HISTORY_STORAGE_KEY) || '[]')
+    if (!Array.isArray(stored)) return { alerts: [], error: 'invalid_history' }
+    const alerts = stored
+      .filter((alert) => (
+        alert
+        && typeof alert.id === 'string'
+        && ALLOWED_ALERT_KINDS.has(alert.kind)
+        && typeof alert.timestamp === 'string'
+        && Number.isFinite(Date.parse(alert.timestamp))
+      ))
+      .map((alert) => ({
+        id: `${alert.kind}-${Date.parse(alert.timestamp)}`,
+        kind: alert.kind,
+        severity: ['INFO', 'WARNING', 'HIGH', 'CRITICAL'].includes(alert.severity) ? alert.severity : 'WARNING',
+        timestamp: new Date(alert.timestamp).toISOString(),
+        dismissed: Boolean(alert.dismissed),
+      }))
+      .slice(0, 20)
+    return { alerts, error: null }
+  } catch (error) {
+    return {
+      alerts: [],
+      error: error instanceof SyntaxError ? 'invalid_history' : 'unavailable',
+    }
+  }
+}
+
+function readNotificationSetting() {
+  try {
+    return { enabled: localStorage.getItem(ALERT_SETTINGS_STORAGE_KEY) === 'enabled', error: null }
+  } catch {
+    return { enabled: false, error: 'unavailable' }
+  }
+}
+
+const isAndroidDevice = () => isAndroidBrowser(typeof navigator === 'undefined' ? undefined : navigator)
 
 export default function DeviceSecurityCheck({ t, onNavigate, lang }) {
   const activeLang = (lang || (typeof document !== 'undefined' ? document.documentElement.lang : 'en') || 'en').toLowerCase()
 
-  const [target, setTarget] = useState('windows')
+  const [initialAlerts] = useState(readStoredAlerts)
+  const [initialNotificationSetting] = useState(readNotificationSetting)
+  const [target, setTarget] = useState(() => isAndroidDevice() ? 'android' : 'windows')
   const [consentGranted, setConsentGranted] = useState(false)
   const [runQuickScan, setRunQuickScan] = useState(false)
   const [state, setState] = useState('idle') // idle, scanning, success, error
+  const [browserCheckComplete, setBrowserCheckComplete] = useState(false)
+  const [androidAssessment, setAndroidAssessment] = useState(null)
   const [result, setResult] = useState(null)
   const [errorDetails, setErrorDetails] = useState(null)
   const [activeFilter, setActiveFilter] = useState('ALL')
   const [expandedEvidence, setExpandedEvidence] = useState({})
-  const [backendStatus, setBackendStatus] = useState('checking') // checking, connected, unreachable
-  const [androidReadiness, setAndroidReadiness] = useState(null)
+  const [backendStatus, setBackendStatus] = useState('idle') // idle, checking, connected, unreachable
+  const [serviceHealth, setServiceHealth] = useState('idle')
   const [reportActionMsg, setReportActionMsg] = useState(null)
 
   // Voice speech state
@@ -23,13 +82,107 @@ export default function DeviceSecurityCheck({ t, onNavigate, lang }) {
   const activeAudioRef = useRef(null)
 
   // Notification & Alert system
-  const [alertHistory, setAlertHistory] = useState([])
-  const [dismissedAlerts, setDismissedAlerts] = useState(new Set())
+  const [alertHistory, setAlertHistory] = useState(initialAlerts.alerts)
+  const [notificationsEnabled, setNotificationsEnabled] = useState(initialNotificationSetting.enabled)
+  const [notificationError, setNotificationError] = useState(() => {
+    if (initialAlerts.error === 'invalid_history') {
+      return t?.('device.alert_history_load_error') || 'Saved alert history could not be read.'
+    }
+    if (initialAlerts.error || initialNotificationSetting.error) {
+      return t?.('device.alert_history_storage_unavailable') || 'Recent alerts are available only until this page is closed.'
+    }
+    return null
+  })
   const [notifPermission, setNotifPermission] = useState(
-    typeof Notification !== 'undefined' ? Notification.permission : 'denied'
+    typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
   )
   const [showAlertHistory, setShowAlertHistory] = useState(false)
-  const lastAlertTimestamps = useRef({})
+  const lastAlertTimestamps = useRef(Object.fromEntries(initialAlerts.alerts.map((alert) => [
+      alert.kind,
+      Date.parse(alert.timestamp) || 0,
+  ])))
+  const lastServiceState = useRef(null)
+  const consecutiveHealthFailures = useRef(0)
+  const healthCheckInFlight = useRef(false)
+
+  const recordAlert = useCallback((kind, severity = 'WARNING') => {
+    const now = Date.now()
+    const lastSent = lastAlertTimestamps.current[kind] || 0
+    if (now - lastSent < 60 * 60 * 1000) return
+    lastAlertTimestamps.current[kind] = now
+
+    const alert = createDeviceSecurityAlert(kind, severity, new Date(now))
+    setAlertHistory((previous) => [alert, ...previous].slice(0, 20))
+
+    if (!notificationsEnabled || notifPermission !== 'granted') return
+    try {
+      new Notification(t?.('device.notification_title') || 'ABBAY CYBERGUARD Device Alert', {
+        body: t?.(`device.notification_${kind}`) || 'A Device Security status changed. Open the application to review it.',
+        icon: '/favicon.ico',
+        tag: `abbay-device-${kind}`,
+      })
+      setNotificationError(null)
+    } catch {
+      setNotificationError(t?.('device.notifications_unavailable') || 'Browser notifications are unavailable in this session.')
+    }
+  }, [notificationsEnabled, notifPermission, t])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ALERT_HISTORY_STORAGE_KEY, JSON.stringify(alertHistory))
+    } catch {
+      setNotificationError(t?.('device.alert_history_storage_unavailable') || 'Recent alerts are available only until this page is closed.')
+    }
+  }, [alertHistory, t])
+
+  useEffect(() => {
+    if (target !== 'windows' || !consentGranted) {
+      lastServiceState.current = null
+      consecutiveHealthFailures.current = 0
+      setServiceHealth('idle')
+      return undefined
+    }
+
+    let active = true
+    const checkService = async () => {
+      if (!active || healthCheckInFlight.current || document.visibilityState === 'hidden') return
+      healthCheckInFlight.current = true
+      try {
+        const status = await getDeviceSecurityStatus()
+        if (!active) return
+        const transition = evaluateLocalServiceHealth(
+          lastServiceState.current,
+          consecutiveHealthFailures.current,
+          status?.connected && status.host_platform === 'Windows'
+        )
+        setServiceHealth(transition.state)
+        consecutiveHealthFailures.current = transition.consecutiveFailures
+        lastServiceState.current = transition.state
+        transition.alerts.forEach((kind) => recordAlert(kind, kind === 'service_recovered' ? 'INFO' : 'WARNING'))
+      } catch {
+        if (!active) return
+        const transition = evaluateLocalServiceHealth(
+          lastServiceState.current,
+          consecutiveHealthFailures.current,
+          false
+        )
+        setServiceHealth(transition.state)
+        consecutiveHealthFailures.current = transition.consecutiveFailures
+        lastServiceState.current = transition.state
+        transition.alerts.forEach((kind) => recordAlert(kind, kind === 'service_repeated_failures' ? 'HIGH' : 'WARNING'))
+      } finally {
+        healthCheckInFlight.current = false
+      }
+    }
+
+    checkService()
+    const intervalId = window.setInterval(checkService, 30_000)
+    return () => {
+      active = false
+      window.clearInterval(intervalId)
+      healthCheckInFlight.current = false
+    }
+  }, [target, consentGranted, recordAlert])
 
   // Browser environment (client-side only, no backend needed)
   const browserInfo = useRef((() => {
@@ -52,33 +205,6 @@ export default function DeviceSecurityCheck({ t, onNavigate, lang }) {
     }
   })())
 
-  // Fetch initial readiness status
-  const checkStatus = useCallback(() => {
-    setBackendStatus('checking')
-    setErrorDetails(null)
-    getDeviceSecurityStatus()
-      .then((data) => {
-        if (!data || data.connected === false || data.status === 502) {
-          setBackendStatus('unreachable')
-          return
-        }
-        setBackendStatus('connected')
-        if (data.android_status) {
-          setAndroidReadiness(data.android_status)
-        }
-        if (data.host_platform && data.host_platform !== 'Windows') {
-          setTarget('android')
-        }
-      })
-      .catch(() => {
-        setBackendStatus('unreachable')
-      })
-  }, [])
-
-  useEffect(() => {
-    checkStatus()
-  }, [checkStatus])
-
   // Stop any active speech on unmount
   useEffect(() => {
     return () => {
@@ -93,16 +219,6 @@ export default function DeviceSecurityCheck({ t, onNavigate, lang }) {
   }, [])
 
   const handleStartScan = useCallback(async () => {
-    if (backendStatus === 'unreachable') {
-      setErrorDetails({
-        category: t?.('device.backend_unreachable_title') || 'Backend Unreachable (Port 8000)',
-        message: t?.('device.backend_unreachable') || 'Cannot connect to CyberShield backend at http://127.0.0.1:8000 (HTTP 502 Bad Gateway). Please run start.bat or cd backend && python run.py.',
-        status: 502,
-      })
-      setState('error')
-      return
-    }
-
     if (!consentGranted) {
       setErrorDetails({
         category: 'Consent Required',
@@ -112,30 +228,74 @@ export default function DeviceSecurityCheck({ t, onNavigate, lang }) {
       return
     }
 
+    setErrorDetails(null)
+    if (target === 'android') {
+      setResult(null)
+      setState('scanning')
+      setReportActionMsg(null)
+      try {
+        const assessment = await inspectAndroidBrowserEnvironment()
+        setAndroidAssessment(assessment)
+        setBrowserCheckComplete(true)
+        setState('success')
+        processAlerts(assessment)
+      } catch {
+        setState('error')
+        setErrorDetails({
+          category: t?.('device.android_check_failed_title') || 'Browser check could not be completed',
+          message: t?.('device.android_check_failed') || 'The browser could not read the supported page security properties. No device scan was performed.',
+        })
+      }
+      return
+    }
+
     // Stop speech before new assessment
     handleStopSpeech()
     setState('scanning')
+    setBackendStatus('checking')
     setErrorDetails(null)
     setReportActionMsg(null)
 
     try {
+      const localStatus = await getDeviceSecurityStatus()
+      if (!localStatus?.connected) {
+        const err = new Error(localStatus?.message || 'Local Windows inspection service is unavailable.')
+        err.code = localStatus?.error || 'BACKEND_UNREACHABLE'
+        err.status = localStatus?.status
+        throw err
+      }
+      if (localStatus.host_platform !== 'Windows') {
+        const err = new Error('The local inspection service is not running on a Windows computer.')
+        err.code = 'WINDOWS_HOST_REQUIRED'
+        throw err
+      }
+      setBackendStatus('connected')
       const data = await scanDeviceSecurity({
-        target,
-        run_quick_scan: runQuickScan && target === 'windows',
+        target: 'windows',
+        run_quick_scan: runQuickScan,
         consent: true,
       })
       setResult(data)
+      setAndroidAssessment(null)
+      setBrowserCheckComplete(false)
       setState('success')
       processAlerts(data)
     } catch (err) {
-      if (err.status === 502 || err.code === 'BACKEND_UNREACHABLE') {
+      if (['BACKEND_UNREACHABLE', 'LOCAL_SERVICE_UNREACHABLE', 'LOCAL_SERVICE_TIMEOUT'].includes(err.code)) {
+        const timedOut = err.code === 'LOCAL_SERVICE_TIMEOUT'
         setBackendStatus('unreachable')
+        recordAlert('service_unavailable', 'WARNING')
         setErrorDetails({
-          category: t?.('device.backend_unreachable_title') || 'Backend Unreachable (Port 8000)',
-          message: t?.('device.backend_unreachable') || 'Could not connect to CyberShield backend at http://127.0.0.1:8000 (HTTP 502 Bad Gateway). Please verify that the backend process is running.',
-          status: 502,
+          category: timedOut
+            ? t?.('device.backend_timeout_title') || 'Local Windows Inspection Timed Out'
+            : t?.('device.backend_unreachable_title') || 'Local Windows Inspection Service Unavailable',
+          message: timedOut
+            ? t?.('device.backend_timeout') || 'The local inspection service did not respond in time. Check its terminal before retrying.'
+            : t?.('device.backend_unreachable') || 'Start start.bat on this Windows PC. If it is already running, allow this site to access the local network.',
+          status: timedOut ? 504 : undefined,
         })
       } else {
+        setBackendStatus('idle')
         setErrorDetails({
           category: err.code || 'Scan Failed',
           message: err.detail || err.message || 'Failed to complete device security check.',
@@ -144,13 +304,14 @@ export default function DeviceSecurityCheck({ t, onNavigate, lang }) {
       }
       setState('error')
     }
-  }, [target, consentGranted, runQuickScan, backendStatus, t])
+  }, [target, consentGranted, runQuickScan, t, recordAlert])
 
   // PDF Export
   const handleDownloadPdf = () => {
-    if (!result) return
+    const report = target === 'android' ? androidAssessment : result
+    if (!report) return
     try {
-      const blob = generateDeviceSecurityPdfBlob(result, { language: activeLang, t })
+      const blob = generateDeviceSecurityPdfBlob(report, { language: activeLang, t })
       if (!blob) throw new Error('PDF generation produced empty blob')
       const todayIso = new Date().toISOString().slice(0, 10)
       const url = URL.createObjectURL(blob)
@@ -266,70 +427,77 @@ export default function DeviceSecurityCheck({ t, onNavigate, lang }) {
 
   // --- Notification System Helpers ---
   const handleRequestNotifPermission = async () => {
-    if (typeof Notification === 'undefined') return
-    try {
-      const perm = await Notification.requestPermission()
-      setNotifPermission(perm)
-    } catch { /* ignore */ }
-  }
-
-  const processAlerts = (scanResult) => {
-    if (!scanResult?.findings) return
-    const now = Date.now()
-    const COOLDOWN_MS = 60 * 60 * 1000 // 1 hour duplicate suppression
-
-    const newAlerts = []
-    for (const finding of scanResult.findings) {
-      if (finding.status !== 'FAIL' && finding.status !== 'WARNING') continue
-      const alertKey = `${finding.id}-${finding.status}`
-
-      // Skip dismissed
-      if (dismissedAlerts.has(alertKey)) continue
-
-      // Duplicate suppression with 1-hour cooldown
-      const lastSeen = lastAlertTimestamps.current[alertKey]
-      if (lastSeen && (now - lastSeen) < COOLDOWN_MS) continue
-
-      lastAlertTimestamps.current[alertKey] = now
-      newAlerts.push({
-        id: alertKey,
-        findingId: finding.id,
-        name: finding.name,
-        status: finding.status,
-        severity: finding.severity,
-        category: finding.category,
-        timestamp: new Date().toISOString(),
-        dismissed: false,
-      })
+    if (typeof Notification === 'undefined') {
+      setNotificationError(t?.('device.notifications_unsupported') || 'Browser notifications are not supported here.')
+      return
     }
-
-    if (newAlerts.length > 0) {
-      setAlertHistory((prev) => [...newAlerts, ...prev].slice(0, 50))
-
-      // Browser notification for critical findings
-      if (notifPermission === 'granted') {
-        const criticals = newAlerts.filter((a) => a.status === 'FAIL')
-        if (criticals.length > 0) {
-          try {
-            new Notification('ABBAY CYBERGUARD — Security Alert', {
-              body: `${criticals.length} finding(s) require attention: ${criticals.map(a => a.name).join(', ')}`,
-              icon: '/favicon.ico',
-              tag: 'cyberguard-device-alert',
-            })
-          } catch { /* Notification API may fail silently */ }
-        }
+    const permissionResult = await requestDeviceSecurityNotificationPermission(Notification)
+    setNotifPermission(permissionResult.permission)
+    if (permissionResult.enabled) {
+      setNotificationsEnabled(true)
+      setNotificationError(null)
+      try {
+        localStorage.setItem(ALERT_SETTINGS_STORAGE_KEY, 'enabled')
+      } catch {
+        setNotificationsEnabled(false)
+        setNotificationError(t?.('device.notification_settings_unavailable') || 'Could not save your notification choice in this browser.')
+      }
+    } else {
+      setNotificationsEnabled(false)
+      setNotificationError(permissionResult.error === 'denied'
+        ? t?.('device.notification_denied') || 'Browser notification permission was denied. Change it in browser settings to enable alerts.'
+        : permissionResult.error === 'unsupported'
+          ? t?.('device.notifications_unsupported') || 'Browser notifications are not supported here.'
+          : permissionResult.error === 'unavailable'
+            ? t?.('device.notifications_unavailable') || 'Browser notifications are unavailable in this session.'
+            : t?.('device.notifications_not_enabled') || 'Notification permission was not granted.')
+      try {
+        localStorage.setItem(ALERT_SETTINGS_STORAGE_KEY, 'disabled')
+      } catch {
+        setNotificationError(t?.('device.notification_settings_unavailable') || 'Could not save your notification choice in this browser.')
       }
     }
   }
 
-  const handleDismissAlert = (alertKey) => {
-    setDismissedAlerts((prev) => new Set([...prev, alertKey]))
-    setAlertHistory((prev) => prev.map((a) => a.id === alertKey ? { ...a, dismissed: true } : a))
+  const handleToggleNotifications = () => {
+    if (notificationsEnabled) {
+      setNotificationsEnabled(false)
+      setNotificationError(null)
+      try {
+        localStorage.setItem(ALERT_SETTINGS_STORAGE_KEY, 'disabled')
+      } catch {
+        setNotificationError(t?.('device.notification_settings_unavailable') || 'Could not save your notification choice in this browser.')
+      }
+    } else if (notifPermission === 'granted') {
+      setNotificationsEnabled(true)
+      setNotificationError(null)
+      try {
+        localStorage.setItem(ALERT_SETTINGS_STORAGE_KEY, 'enabled')
+      } catch {
+        setNotificationsEnabled(false)
+        setNotificationError(t?.('device.notification_settings_unavailable') || 'Could not save your notification choice in this browser.')
+      }
+    } else {
+      handleRequestNotifPermission()
+    }
+  }
+
+  const processAlerts = (scanResult) => {
+    if (!scanResult?.findings) return
+    const failures = scanResult.findings.filter((finding) => finding.status === 'FAIL')
+    const warnings = scanResult.findings.filter((finding) => finding.status === 'WARNING')
+    if (failures.length > 0) recordAlert('assessment_critical', 'CRITICAL')
+    else if (warnings.length > 0) recordAlert('assessment_warnings', 'WARNING')
+  }
+
+  const handleDismissAlert = (alertId) => {
+    setAlertHistory((previous) => previous.map((alert) => (
+      alert.id === alertId ? { ...alert, dismissed: true } : alert
+    )))
   }
 
   const handleClearAlertHistory = () => {
     setAlertHistory([])
-    setDismissedAlerts(new Set())
     lastAlertTimestamps.current = {}
   }
 
@@ -344,7 +512,7 @@ export default function DeviceSecurityCheck({ t, onNavigate, lang }) {
     { name: 'Startup Persistence Entries', method: 'Registry (Run/RunOnce)', status: 'SUPPORTED', scope: 'HKCU + HKLM Run/RunOnce keys (read-only, names only)' },
     { name: 'Running Process Monitoring', method: 'psutil (if installed)', status: 'PARTIAL', scope: 'Process count only. Requires pip install psutil for detailed audit.' },
     { name: 'Browser Environment', method: 'Client-side JS (navigator)', status: 'SUPPORTED', scope: 'Browser name, version, platform, cookies, secure context' },
-    { name: 'Android Device (ADB)', method: 'ADB subprocess', status: 'SUPPORTED', scope: 'Requires ADB installed + USB debugging authorized' },
+    { name: 'Android Browser Check', method: 'Browser-visible properties only', status: 'PARTIAL', scope: 'HTTPS, secure context, selected browser APIs, and non-prompting permission state where supported.' },
     { name: 'Network Traffic Analysis', method: '—', status: 'NOT AVAILABLE', scope: 'Not implemented. Use network monitoring tools externally.' },
     { name: 'File System Malware Scan', method: 'Defender MpCmdRun.exe', status: 'PARTIAL', scope: 'Quick scan or single-file scan (user-initiated only, -DisableRemediation)' },
   ]
@@ -412,12 +580,12 @@ export default function DeviceSecurityCheck({ t, onNavigate, lang }) {
       </div>
 
       {/* Backend Offline Warning Banner */}
-      {backendStatus === 'unreachable' && (
+      {target === 'windows' && backendStatus === 'unreachable' && (
         <div className="card" role="alert" style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', padding: '16px 20px', borderRadius: '12px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#f87171', fontWeight: 'bold', fontSize: '1rem' }}>
               <span>⚠️</span>
-              <span>{t?.('device.backend_unreachable_title') || 'Backend Service Unreachable (HTTP 502 / Port 8000)'}</span>
+              <span>{t?.('device.backend_unreachable_title') || 'Local Windows Inspection Service Unavailable'}</span>
             </div>
             <p style={{ margin: '6px 0 0 28px', fontSize: '0.85rem', color: '#fca5a5' }}>
               {t?.('device.backend_unreachable') || 'Cannot connect to CyberShield backend at http://127.0.0.1:8000. Ensure the backend server is running via start.bat or cd backend && python run.py.'}
@@ -426,7 +594,7 @@ export default function DeviceSecurityCheck({ t, onNavigate, lang }) {
           <button
             type="button"
             className="btn btn-outline"
-            onClick={checkStatus}
+            onClick={handleStartScan}
             style={{ padding: '8px 16px', fontSize: '0.85rem', borderRadius: '6px', color: '#f87171', borderColor: '#ef4444' }}
           >
             🔄 {t?.('device.retry_conn') || 'Retry Connection'}
@@ -445,7 +613,16 @@ export default function DeviceSecurityCheck({ t, onNavigate, lang }) {
           <button
             type="button"
             className={`btn ${target === 'windows' ? 'btn-primary' : 'btn-outline'}`}
-            onClick={() => { setTarget('windows'); setErrorDetails(null); }}
+            onClick={() => {
+              setTarget('windows')
+              setConsentGranted(false)
+              setResult(null)
+              setAndroidAssessment(null)
+              setBrowserCheckComplete(false)
+              setBackendStatus('idle')
+              setErrorDetails(null)
+              setState('idle')
+            }}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px' }}
           >
             <span>🪟</span>
@@ -455,11 +632,20 @@ export default function DeviceSecurityCheck({ t, onNavigate, lang }) {
           <button
             type="button"
             className={`btn ${target === 'android' ? 'btn-primary' : 'btn-outline'}`}
-            onClick={() => { setTarget('android'); setErrorDetails(null); }}
+            onClick={() => {
+              setTarget('android')
+              setConsentGranted(false)
+              setResult(null)
+              setAndroidAssessment(null)
+              setBrowserCheckComplete(false)
+              setBackendStatus('idle')
+              setErrorDetails(null)
+              setState('idle')
+            }}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px' }}
           >
             <span>📱</span>
-            <span>{t?.('device.target_android_desc') || t?.('device.target_android') || 'Android Mobile Check (ADB)'}</span>
+            <span>{t?.('device.target_android_desc') || t?.('device.target_android') || 'Android Browser-Only Check'}</span>
           </button>
         </div>
 
@@ -472,22 +658,7 @@ export default function DeviceSecurityCheck({ t, onNavigate, lang }) {
         ) : (
           <div style={{ background: 'rgba(51, 65, 85, 0.5)', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', fontSize: '0.85rem', color: '#cbd5e1' }}>
             <strong>{t?.('device.scope_android_label') || 'Android Inspection Scope:'}</strong>{' '}
-            {t?.('device.scope_android_desc') || 'Inspects attached mobile device via Android Debug Bridge (ADB). Audits OS version, security patch level, device firmware identity, bootloader lock state, Verified Boot (AVB), screen lock enforcement, unknown-source APK restrictions, and application hygiene.'}
-            {androidReadiness?.adb_state === 'MISSING' && (
-              <div style={{ marginTop: '8px', color: '#fbbf24', fontWeight: 600 }}>
-                ⚠️ {t?.('device.adb_missing') || 'ADB is not installed. Android assessment is unavailable on this computer.'}
-              </div>
-            )}
-            {androidReadiness?.adb_state === 'NO_DEVICE' && (
-              <div style={{ marginTop: '8px', color: '#60a5fa', fontWeight: 600 }}>
-                ℹ️ {t?.('device.no_device') || 'No Android device detected. Connect an authorized Android device to continue.'}
-              </div>
-            )}
-            {androidReadiness?.adb_state === 'UNAUTHORIZED' && (
-              <div style={{ marginTop: '8px', color: '#f87171', fontWeight: 600 }}>
-                ⚠️ {t?.('device.auth_pending') || 'Android device detected, but USB debugging authorization is pending.'}
-              </div>
-            )}
+            {t?.('device.scope_android_browser_desc') || 'This browser-only check can report the HTTPS/secure-context state and limited browser information. It cannot inspect Android antivirus, installed apps, OS security settings, patch level, verified boot, or hardware integrity. No Android system permissions are requested.'}
           </div>
         )}
 
@@ -501,8 +672,12 @@ export default function DeviceSecurityCheck({ t, onNavigate, lang }) {
               style={{ marginTop: '3px', width: '18px', height: '18px', cursor: 'pointer' }}
             />
             <span>
-              <strong>{t?.('device.consent_title') || 'I authorize CyberShield to inspect local security configuration.'}</strong>{' '}
-              {t?.('device.consent_desc') || 'I understand this check is completely local, non-destructive, and will not alter settings, delete files, or disable defenses.'}
+              <strong>{target === 'android'
+                ? (t?.('device.android_consent_title') || 'I authorize ABBAY CYBERGUARD to display browser-visible security information for this page.')
+                : (t?.('device.consent_title') || 'I authorize CyberShield to inspect local security configuration.')}</strong>{' '}
+              {target === 'android'
+                ? (t?.('device.android_consent_desc') || 'This check reads only browser-visible information. It does not contact the backend or inspect Android settings.')
+                : (t?.('device.consent_desc') || 'I understand this check is completely local, non-destructive, and will not alter settings, delete files, or disable defenses.')}
             </span>
           </label>
 
@@ -528,14 +703,14 @@ export default function DeviceSecurityCheck({ t, onNavigate, lang }) {
             type="button"
             className="btn btn-primary"
             onClick={handleStartScan}
-            disabled={!consentGranted || state === 'scanning' || backendStatus === 'unreachable'}
+            disabled={!consentGranted || state === 'scanning' || backendStatus === 'checking'}
             style={{
               padding: '12px 24px',
               fontWeight: 600,
               fontSize: '1rem',
               borderRadius: '8px',
-              cursor: consentGranted && state !== 'scanning' && backendStatus !== 'unreachable' ? 'pointer' : 'not-allowed',
-              opacity: consentGranted && state !== 'scanning' && backendStatus !== 'unreachable' ? 1 : 0.6,
+              cursor: consentGranted && state !== 'scanning' && backendStatus !== 'checking' ? 'pointer' : 'not-allowed',
+              opacity: consentGranted && state !== 'scanning' && backendStatus !== 'checking' ? 1 : 0.6,
               display: 'inline-flex',
               alignItems: 'center',
               gap: '10px',
@@ -549,12 +724,140 @@ export default function DeviceSecurityCheck({ t, onNavigate, lang }) {
             ) : (
               <>
                 <span>🛡️</span>
-                <span>{t?.('device.btn_run') || 'Run Device Security Assessment'}</span>
+                <span>{target === 'android'
+                  ? (t?.('device.btn_android_browser_check') || 'Run browser-only Android check')
+                  : (t?.('device.btn_run') || 'Run Device Security Assessment')}</span>
               </>
             )}
           </button>
         </div>
       </div>
+
+      {target === 'android' && browserCheckComplete && androidAssessment && (
+        <div className="card device-android-results" aria-label={t?.('device.android_browser_results') || 'Android browser-only security check'}>
+          <h2 style={{ color: '#f8fafc', marginTop: 0 }}>
+            📱 {t?.('device.android_browser_results') || 'Android browser-only results'}
+          </h2>
+          <p style={{ color: '#fbbf24' }}>
+            {t?.('device.android_no_score') || 'No overall device-security score is produced. These results describe browser-visible conditions only.'}
+          </p>
+          <p className="device-android-detection">
+            {isAndroidDevice()
+              ? (t?.('device.android_detected') || 'Android browser detected.')
+              : (t?.('device.android_not_detected') || 'Android was not detected; this report describes the current browser only.')}
+          </p>
+          <div className="device-android-findings">
+            {androidAssessment.findings.map((rawFinding) => {
+              const finding = localizeFinding(rawFinding, activeLang, t)
+              const colors = {
+                PASS: '#34d399',
+                WARNING: '#fbbf24',
+                FAIL: '#f87171',
+                'NOT SUPPORTED': '#a78bfa',
+                'NOT CHECKED': '#94a3b8',
+              }
+              const color = colors[rawFinding.status] || colors['NOT CHECKED']
+              return (
+                <article className="device-android-finding" key={finding.id}>
+                  <div className="device-android-finding-heading">
+                    <h3>{finding.name}</h3>
+                    <span style={{ color }}>{finding.status}</span>
+                  </div>
+                  <p>{finding.remediation}</p>
+                  {rawFinding.id.startsWith('ANDROID-PERMISSION-') && (
+                    <small>
+                      {t?.('device.android_permission_state_label') || 'Permission state (not changed):'}{' '}
+                      {t?.(`device.android_permission_state_${rawFinding.evidence}`) || (rawFinding.evidence || 'Not checked')}
+                    </small>
+                  )}
+                </article>
+              )
+            })}
+          </div>
+          <p className="device-android-limitations">
+            {t?.('device.android_unsupported_checks') || 'Not checked / not accessible from a web page: antivirus or Play Protect state, installed applications, Android system settings, security patch level, bootloader / verified boot, and hardware integrity. A signed native Android app or an explicitly installed local helper would be required for deeper inspection.'}
+          </p>
+          <p className="device-android-limitations">
+            {t?.('device.android_local_only') || 'No device details were sent to the backend; no Android system permissions were requested.'}
+          </p>
+          <button type="button" className="btn btn-primary" onClick={handleDownloadPdf}>
+            📄 {t?.('device.download_pdf') || 'Download PDF Report'}
+          </button>
+        </div>
+      )}
+
+      <section className="card device-alert-center" aria-label={t?.('device.alert_notifications') || 'Alert Notifications'}>
+        <div className="device-alert-settings">
+          <div>
+            <h2>{t?.('device.alert_notifications') || 'Alert Notifications'}</h2>
+            <p>{t?.('device.notification_scope') || 'Browser notifications require your permission and only work while this application is active. Alerts contain no device details.'}</p>
+          </div>
+          {notifPermission !== 'unsupported' && (notifPermission !== 'denied' || notificationsEnabled) && (
+            <button type="button" className="btn btn-outline" onClick={handleToggleNotifications} aria-pressed={notificationsEnabled}>
+              {notificationsEnabled
+                ? (t?.('device.disable_notifications') || 'Disable notifications')
+                : (t?.('device.enable_notifications') || 'Enable browser notifications')}
+            </button>
+          )}
+          {notifPermission === 'granted' && (
+            <span className="device-notification-status">
+              {notificationsEnabled
+                ? (t?.('device.notifications_enabled') || 'Browser notifications enabled')
+                : (t?.('device.notifications_disabled') || 'Browser notifications disabled')}
+            </span>
+          )}
+          {notifPermission === 'denied' && (
+            <span className="device-notification-status" role="status">
+              {t?.('device.notification_denied') || 'Permission denied. Change this site’s notification permission in browser settings.'}
+            </span>
+          )}
+          {notifPermission === 'unsupported' && (
+            <span className="device-notification-status">
+              {t?.('device.notifications_unsupported') || 'Browser notifications are not supported here.'}
+            </span>
+          )}
+        </div>
+        {target === 'windows' && consentGranted && (
+          <p className="device-service-health" role="status">
+            {t?.('device.service_health_label') || 'Local helper status'}:{' '}
+            {serviceHealth === 'available'
+              ? (t?.('device.service_health_available') || 'Available')
+              : serviceHealth === 'unavailable'
+                ? (t?.('device.service_health_unavailable') || 'Unavailable')
+                : (t?.('device.service_health_waiting') || 'Waiting for the first check')}
+          </p>
+        )}
+        {notificationError && <p className="device-notification-error" role="alert">{notificationError}</p>}
+        <div className="device-alert-history-controls">
+          <button type="button" className="btn btn-sm btn-outline" onClick={() => setShowAlertHistory(!showAlertHistory)}>
+            {showAlertHistory
+              ? (t?.('device.hide_alert_history') || 'Hide recent alerts')
+              : `${t?.('device.alert_history') || 'Recent alerts'} (${alertHistory.length})`}
+          </button>
+          {showAlertHistory && alertHistory.length > 0 && (
+            <button type="button" className="btn btn-sm ghost" onClick={handleClearAlertHistory}>
+              {t?.('device.clear_alerts') || 'Clear alert history'}
+            </button>
+          )}
+        </div>
+        {showAlertHistory && (
+          <div className="device-alert-history" aria-live="polite">
+            {alertHistory.length === 0
+              ? <p>{t?.('device.no_alerts') || 'No alerts recorded.'}</p>
+              : alertHistory.slice(0, 10).map((alert) => (
+                <article className="device-alert-entry" key={alert.id}>
+                  <span>{t?.(`device.notification_${alert.kind}`) || 'Device Security alert'}</span>
+                  <time dateTime={alert.timestamp}>{new Date(alert.timestamp).toLocaleString()}</time>
+                  {!alert.dismissed && (
+                    <button type="button" onClick={() => handleDismissAlert(alert.id)}>
+                      {t?.('device.dismiss_alert') || 'Dismiss'}
+                    </button>
+                  )}
+                </article>
+              ))}
+          </div>
+        )}
+      </section>
 
       {/* Error Banner */}
       {state === 'error' && errorDetails && (
@@ -570,7 +873,7 @@ export default function DeviceSecurityCheck({ t, onNavigate, lang }) {
       )}
 
       {/* Results Dashboard */}
-      {result && (
+      {target === 'windows' && result && (
         <div className="card" style={{ padding: '24px', borderRadius: '16px', background: '#1e293b', border: '1px solid #334155' }}>
           {/* Device Summary & Overall Status Strip */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', paddingBottom: '20px', borderBottom: '1px solid #334155', marginBottom: '20px' }}>
@@ -782,82 +1085,6 @@ export default function DeviceSecurityCheck({ t, onNavigate, lang }) {
               </div>
             </div>
           )}
-
-          {/* Notification & Alert System */}
-          <div style={{ marginBottom: '16px', padding: '14px', background: '#0f172a', border: '1px solid #334155', borderRadius: '10px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
-              <span style={{ fontSize: '0.88rem', fontWeight: 600, color: '#f8fafc' }}>
-                🔔 {t?.('device.alert_notifications') || 'Alert Notifications'}
-              </span>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                {notifPermission !== 'granted' && (
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline"
-                    onClick={handleRequestNotifPermission}
-                    style={{ padding: '4px 10px', fontSize: '0.75rem', borderRadius: '6px', color: '#60a5fa', borderColor: '#3b82f6' }}
-                  >
-                    🔔 {t?.('device.enable_notifications') || 'Enable Browser Notifications'}
-                  </button>
-                )}
-                {notifPermission === 'granted' && (
-                  <span style={{ fontSize: '0.75rem', color: '#34d399' }}>
-                    ✓ {t?.('device.notifications_enabled') || 'Browser notifications enabled'}
-                  </span>
-                )}
-                <button
-                  type="button"
-                  className="btn btn-sm ghost"
-                  onClick={() => setShowAlertHistory(!showAlertHistory)}
-                  style={{ padding: '4px 10px', fontSize: '0.75rem', borderRadius: '6px' }}
-                >
-                  {showAlertHistory ? '▴ Hide' : `▾ ${t?.('device.alert_history') || 'Alert History'} (${alertHistory.length})`}
-                </button>
-              </div>
-            </div>
-            {showAlertHistory && (
-              <div>
-                {alertHistory.length === 0 ? (
-                  <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '4px 0' }}>
-                    {t?.('device.no_alerts') || 'No alerts recorded. Run an assessment to detect potential issues.'}
-                  </p>
-                ) : (
-                  <>
-                    <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      {alertHistory.slice(0, 10).map((alert, idx) => (
-                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: '#1e293b', borderRadius: '6px', fontSize: '0.78rem', opacity: alert.dismissed ? 0.5 : 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ color: alert.status === 'FAIL' ? '#f87171' : '#fbbf24', fontWeight: 'bold' }}>
-                              {alert.status === 'FAIL' ? '🚨' : '⚠️'} {alert.severity}
-                            </span>
-                            <span style={{ color: '#f8fafc' }}>{alert.name}</span>
-                            <span style={{ color: '#64748b' }}>{new Date(alert.timestamp).toLocaleTimeString()}</span>
-                          </div>
-                          {!alert.dismissed && (
-                            <button
-                              type="button"
-                              onClick={() => handleDismissAlert(alert.id)}
-                              style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '0.72rem' }}
-                            >
-                              ✕ Dismiss
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      className="btn btn-sm ghost"
-                      onClick={handleClearAlertHistory}
-                      style={{ marginTop: '8px', padding: '4px 10px', fontSize: '0.72rem', color: '#64748b' }}
-                    >
-                      🗑️ {t?.('device.clear_alerts') || 'Clear Alert History'}
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
 
           {/* Filter Pills */}
           <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>

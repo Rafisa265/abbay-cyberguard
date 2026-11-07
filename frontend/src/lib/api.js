@@ -17,12 +17,13 @@ const doFetch = (url, options = {}) => {
     ...options,
     credentials: options.credentials || 'include',
     headers: {
-      'Content-Type': 'application/json',
+      ...(options.contentType === false ? {} : { 'Content-Type': 'application/json' }),
       ...(options.headers || {}),
     },
   }
 
   delete fetchOptions.timeout
+  delete fetchOptions.contentType
 
   if ((timeoutMs || fetchOptions.signal) && typeof AbortController !== 'undefined') {
     controller = new AbortController()
@@ -695,7 +696,12 @@ export async function synthesizeSpeechOffline({ text, language = 'en' }) {
 
 export async function getDeviceSecurityStatus() {
   try {
-    const res = await doFetch(`${LOCAL_API_BASE}/api/v1/device-security/status`, { method: 'GET', credentials: 'omit', timeout: 5000 })
+    const res = await doFetch(`${LOCAL_API_BASE}/api/v1/device-security/status`, {
+      method: 'GET',
+      credentials: 'omit',
+      timeout: 5000,
+      contentType: false,
+    })
     if (!res.ok) {
       return {
         connected: false,
@@ -709,10 +715,18 @@ export async function getDeviceSecurityStatus() {
     const data = await res.json()
     return { connected: true, status: 200, ...data }
   } catch (err) {
+    if (err.code === 'REQUEST_TIMEOUT') {
+      return {
+        connected: false,
+        status: 504,
+        error: 'LOCAL_SERVICE_TIMEOUT',
+        message: 'The local Windows inspection service did not respond within 5 seconds.',
+      }
+    }
     return {
       connected: false,
-      status: 502,
-      error: 'BACKEND_UNREACHABLE',
+      status: 0,
+      error: 'LOCAL_SERVICE_UNREACHABLE',
       message: err.message,
     }
   }
@@ -725,12 +739,16 @@ export async function scanDeviceSecurity(payload) {
       method: 'POST',
       credentials: 'omit',
       body: JSON.stringify(payload),
+      timeout: 240000,
     })
   } catch (fetchErr) {
-    const err = new Error('Network error connecting to backend')
-    err.status = 502
-    err.code = 'BACKEND_UNREACHABLE'
-    err.detail = 'Cannot connect to the local Windows inspection service at 127.0.0.1:8000. Start the local service on this Windows PC.'
+    const timedOut = fetchErr.code === 'REQUEST_TIMEOUT'
+    const err = new Error(timedOut ? 'Local Windows assessment timed out' : 'Local Windows inspection service is unreachable')
+    err.status = timedOut ? 504 : 0
+    err.code = timedOut ? 'LOCAL_SERVICE_TIMEOUT' : 'LOCAL_SERVICE_UNREACHABLE'
+    err.detail = timedOut
+      ? 'The local assessment exceeded the 4-minute browser limit. Check the local service before starting another assessment.'
+      : 'Cannot reach the local Windows inspection service at 127.0.0.1:8000. Confirm it is running and allow this site to access the local network.'
     throw err
   }
 

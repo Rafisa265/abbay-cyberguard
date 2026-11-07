@@ -761,7 +761,7 @@ export default function Assistant({ t, lang, onNavigate, assistantContext, initi
             🛡️ {t('assistant.pill_offline_first') || 'Offline-First Engine'}
           </span>
           {lang === 'am' && (
-            <div className="assistant-voice-provider-toggle" role="group" aria-label="Amharic Voice Provider" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+            <div className="assistant-voice-provider-toggle" role="group" aria-label={t('assistant.voice_provider_group') || 'Amharic voice provider'} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
               <button
                 type="button"
                 className={`btn btn-xs ${onlineVoiceConsentGranted ? 'btn-primary' : 'ghost'}`}
@@ -772,28 +772,28 @@ export default function Assistant({ t, lang, onNavigate, assistantContext, initi
                   )
                   setOnlineVoiceConsentGranted(consented)
                 }}
-                title="Online speech sends response text to a cloud provider and requires your consent"
+                title={t('assistant.voice_online_description') || 'Online speech sends response text to a cloud provider and requires your consent'}
               >
-                🌐 መቅደስ Online (consent)
+                🌐 {t('assistant.voice_online_consent_btn') || 'Online voice (consent required)'}
               </button>
               <button
                 type="button"
                 className={`btn btn-xs ${onlineVoiceConsentGranted ? 'ghost' : 'btn-primary'}`}
                 onClick={() => setOnlineVoiceConsentGranted(false)}
-                title="Uses a local Amharic voice if available, otherwise requires the local MMS model"
+                title={t('assistant.voice_local_description') || 'Uses a local voice when available; otherwise uses the offline voice model.'}
               >
-                🛡️ Local / MMS (if installed)
+                🛡️ {t('assistant.voice_local_mms_btn') || 'Local / MMS (if installed)'}
               </button>
             </div>
           )}
           {lang === 'om' && (
-            <span className="assistant-mode-pill pill-offline" title="Offline speech is available only when the local Oromo MMS model is installed">
-              🛡️ MMS Oromo (if installed)
+            <span className="assistant-mode-pill pill-offline" title={t('assistant.voice_oromo_offline_description') || 'Offline speech requires the local Oromo voice model.'}>
+              🛡️ {t('assistant.voice_oromo_offline_label') || 'Afaan Oromoo offline voice'}
             </span>
           )}
           {lang === 'en' && (
-            <span className="assistant-mode-pill pill-offline" title="Windows OneCore (100% Offline Local Voice)">
-              🛡️ OneCore (Offline)
+            <span className="assistant-mode-pill pill-offline" title={t('assistant.voice_english_offline_description') || 'Uses a browser voice only when it is marked as a local voice.'}>
+              🛡️ {t('assistant.voice_english_offline_label') || 'English local voice'}
             </span>
           )}
           <button

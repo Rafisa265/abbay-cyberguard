@@ -149,6 +149,8 @@ async def guard(request: Request, call_next):
                 resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
                 resp.headers["Access-Control-Allow-Credentials"] = "true"
                 resp.headers["Access-Control-Max-Age"] = "86400"
+                if request.headers.get("access-control-request-private-network") == "true":
+                    resp.headers["Access-Control-Allow-Private-Network"] = "true"
             else:
                 resp = err("ORIGIN_NOT_ALLOWED")
         elif request.method in ("POST", "PUT", "PATCH", "DELETE") and request.headers.get("origin") not in (None, *config.ALLOWED_ORIGINS):

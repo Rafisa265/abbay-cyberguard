@@ -1,33 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { M4_QUIZ_BANK, selectQuizSessionQuestions, calculateQuizDiagnostics } from '../data/m4QuizBank.js'
-
-const api = async (path, body) => {
-  try {
-    const r = await fetch(path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : undefined)
-    if (!r.ok) {
-      const err = new Error(`HTTP ${r.status}`)
-      err.status = r.status
-      err.endpoint = path
-      try {
-        const text = await r.text()
-        const parsed = JSON.parse(text)
-        err.code = parsed?.error?.code
-      } catch {
-        // non-JSON response
-      }
-      console.error(`[CyberShield M4 Error] ${path} returned HTTP ${r.status}`, err.code || '')
-      throw err
-    }
-    return await r.json()
-  } catch (err) {
-    if (!err.endpoint) {
-      err.endpoint = path
-      err.status = 'NETWORK_ERROR'
-      console.error(`[CyberShield M4 Network Error] ${path}:`, err.message || err)
-    }
-    throw err
-  }
-}
+import { getM4Scenarios, getM4Demo } from '../lib/api.js'
 
 function decodeEntities(str) {
   if (typeof str !== 'string') return str
@@ -127,19 +100,19 @@ export default function M4({ t, onNavigate }) {
     setState('loading')
     setErrorDetails(null)
     try {
-      const d = await api('/api/v1/m4/scenarios')
+      const d = await getM4Scenarios()
       const scenarios = d?.scenarios || []
       setList(scenarios)
       const selected = targetScenarioId || activeScenarioId || scenarios[0]?.id || 'DS-A'
       setActiveScenarioId(selected)
-      const demoData = await api('/api/v1/m4/demo', { scenario_id: selected })
+      const demoData = await getM4Demo(selected)
       setRes(demoData)
       setState('idle')
     } catch (err) {
       setErrorDetails({
         endpoint: err.endpoint || '/api/v1/m4/scenarios',
         status: err.status || 'NETWORK_ERROR',
-        category: err.status === 502 ? 'Backend unreachable (check port 8000)' :
+        category: err.status === 502 ? 'Backend unreachable' :
                   err.status === 403 ? 'Origin or access denied' :
                   err.status === 404 ? 'Endpoint not found' :
                   err.status === 'NETWORK_ERROR' ? 'Connection refused' :
@@ -158,14 +131,14 @@ export default function M4({ t, onNavigate }) {
     setErrorDetails(null)
     setActiveScenarioId(id)
     try {
-      const demoData = await api('/api/v1/m4/demo', { scenario_id: id })
+      const demoData = await getM4Demo(id)
       setRes(demoData)
       setState('idle')
     } catch (err) {
       setErrorDetails({
         endpoint: err.endpoint || '/api/v1/m4/demo',
         status: err.status || 'NETWORK_ERROR',
-        category: err.status === 502 ? 'Backend unreachable (check port 8000)' :
+        category: err.status === 502 ? 'Backend unreachable' :
                   err.status === 403 ? 'Origin or access denied' :
                   err.status === 404 ? 'Endpoint not found' :
                   err.status === 'NETWORK_ERROR' ? 'Connection refused' :
